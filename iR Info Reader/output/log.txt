@@ -1,0 +1,9 @@
+iR Info Reader v0.3
+====================
+iRSDK Connected
+====================
+Track: southernnational, Car: usf2000usf17, Length: 0.35mi, Date: 2021-05-15 3:14pm, Rubber: moderately low usage
+Skies: Partly Cloudy, Surface: 78.0f, Track: 117.0f, Wind: N @ 2.0mph, Humidity: 55.1%, Pressure: 29.8Hg
+====================
+Practice
+====================
