@@ -11,7 +11,7 @@
     <OutputPath>.</OutputPath>
     <Name>iR Info Reader</Name>
     <RootNamespace>iR Info Reader</RootNamespace>
-    <IsWindowsApplication>True</IsWindowsApplication>
+    <IsWindowsApplication>False</IsWindowsApplication>
     <TestFramework>pytest</TestFramework>
     <UnitTestPattern>test*.py</UnitTestPattern>
     <UnitTestRootDirectory>.</UnitTestRootDirectory>

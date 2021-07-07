@@ -2,8 +2,78 @@ iR Info Reader v0.3
 ====================
 iRSDK Connected
 ====================
-Track: southernnational, Car: usf2000usf17, Length: 0.35mi, Date: 2021-05-15 3:14pm, Rubber: moderately low usage
-Skies: Partly Cloudy, Surface: 78.0f, Track: 117.0f, Wind: N @ 2.0mph, Humidity: 55.1%, Pressure: 29.8Hg
+Track: iowa, Car: dallarair18, Length: 0.89mi, Date: 2021-07-10 10:00pm, Rubber: moderately low usage
+Skies: Partly Cloudy, Surface: 73.9f, Track: 75.0f, Wind: N @ 2.0mph, Humidity: 70.9%, Pressure: 29.0Hg
 ====================
 Practice
+====================
+Lap 9 Report [Laps: 52.18 | Used: 0.348gal | Used Rate Req: 0.403gal | MPG: 2.55mpg | MPG Req: 2.2mpg | Total: -2.498gal]
+Lap 10 Report [Laps: 49.41 | Used: 0.36gal | Used Rate Req: 0.404gal | MPG: 2.47mpg | MPG Req: 2.2mpg | Total: -1.949gal]
+====================
+iRSDK Disconnected
+====================
+iRSDK Connected
+====================
+Track: iowa, Car: dallarair18, Length: 0.89mi, Date: 2021-07-10 10:00pm, Rubber: moderate usage
+Skies: Partly Cloudy, Surface: 65.5f, Track: 68.0f, Wind: N @ 2.0mph, Humidity: 55.9%, Pressure: 29.0Hg
+====================
+Practice
+====================
+====================
+iRSDK Disconnected
+====================
+iRSDK Connected
+====================
+Track: iowa, Car: dallarair18, Length: 0.89mi, Date: 2021-07-10 10:00pm, Rubber: moderate usage
+Skies: Partly Cloudy, Surface: 65.5f, Track: 68.0f, Wind: N @ 2.0mph, Humidity: 56.0%, Pressure: 29.0Hg
+====================
+Practice
+====================
+Lap 0 Report [Laps: -1.0 | Used: -0.938gal | Used Rate Req: 0.0gal | MPG: -0.95mpg | MPG Req: 31028.02mpg | Total: -30750.064gal]
+Lap 1 Report [Laps: 1.07 | Used: 0.453gal | Used Rate Req: 0.001gal | MPG: 1.96mpg | MPG Req: 637.63mpg | Total: 157.312gal]
+====================
+iRSDK Disconnected
+====================
+iRSDK Connected
+====================
+Track: iowa, Car: dallarair18, Length: 0.89mi, Date: 2021-07-10 10:00pm, Rubber: extensive usage
+Skies: Partly Cloudy, Surface: 71.6f, Track: 71.6f, Wind: N @ 2.0mph, Humidity: 85.6%, Pressure: 29.0Hg
+====================
+Practice
+====================
+Lap 0 Report [Laps: -1.0 | Used: -0.996gal | Used Rate Req: 0.0gal | MPG: -0.89mpg | MPG Req: 29229.19mpg | Total: -32642.495gal]
+====================
+Lone Qualify
+====================
+Lap 0 Report [Laps: 3.15 | Used: 0.24gal | Used Rate Req: 0.378gal | MPG: 3.7mpg | MPG Req: 2.35mpg | Total: -0.276gal]
+====================
+Race
+====================
+Lap 0 Report [Laps: -1.04 | Used: -17.68gal | Used Rate Req: 0.123gal | MPG: -0.05mpg | MPG Req: 7.23mpg | Total: -2670.454gal]
+Lap 0 Report [Laps: 156.81 | Used: 0.117gal | Used Rate Req: 0.122gal | MPG: 7.61mpg | MPG Req: 7.28mpg | Total: -0.796gal]
+====================
+iRSDK Disconnected
+====================
+iRSDK Connected
+====================
+Track: iowa, Car: dallarair18, Length: 0.89mi, Date: 2021-07-10 10:00pm, Rubber: carry over
+Skies: Partly Cloudy, Surface: 71.2f, Track: 74.0f, Wind: N @ 2.0mph, Humidity: 86.9%, Pressure: 29.0Hg
+====================
+Race
+====================
+====================
+iRSDK Disconnected
+====================
+iRSDK Connected
+====================
+Track: iowa, Car: dallarair18, Length: 0.89mi, Date: 2021-07-06 12:52am, Rubber: extensive usage
+Skies: Partly Cloudy, Surface: 78.0f, Track: 73.0f, Wind: N @ 2.0mph, Humidity: 55.0%, Pressure: 29.9Hg
+====================
+Practice
+====================
+====================
+Race
+====================
+====================
+iRSDK Disconnected
 ====================
