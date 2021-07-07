@@ -7,11 +7,10 @@ import subprocess
 import sys
 from datetime import datetime
 
-# Write to log file
 Date = datetime.now()
 DateStr = Date.strftime("%Y-%m-%d_%H.%M.%S")
-#sys.stdout = open('output\\' + DateStr + '_log.txt', 'w')
 
+# Write to log file and stdout
 te = open('output\\' + DateStr + '_log.txt', 'w')  # File where you need to keep the logs
 
 class Unbuffered:
@@ -25,8 +24,6 @@ class Unbuffered:
        self.stream.write(data)
        self.stream.flush()
        te.write(data)    # Write the data of stdout here to a text file as well
-
-
 
 sys.stdout=Unbuffered(sys.stdout)
 
@@ -107,6 +104,7 @@ def WindDir():
         WindCard = "NW"
     return WindCard
 
+# Func to not double up on seperators because it bothered me
 def PrintSep():
     if state.print_sep == False:
         print("====================")
