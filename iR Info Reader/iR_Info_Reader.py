@@ -5,11 +5,32 @@ import time
 import os
 import subprocess
 import sys
+from datetime import datetime
 
 # Write to log file
-#sys.stdout = open('output\\log.txt', 'w')
+Date = datetime.now()
+DateStr = Date.strftime("%Y-%m-%d_%H.%M.%S")
+#sys.stdout = open('output\\' + DateStr + '_log.txt', 'w')
 
-print("iR Info Reader v0.3")
+te = open('output\\' + DateStr + '_log.txt', 'w')  # File where you need to keep the logs
+
+class Unbuffered:
+
+   def __init__(self, stream):
+
+       self.stream = stream
+
+   def write(self, data):
+
+       self.stream.write(data)
+       self.stream.flush()
+       te.write(data)    # Write the data of stdout here to a text file as well
+
+
+
+sys.stdout=Unbuffered(sys.stdout)
+
+print("iR Info Reader v0.4")
 print("====================")
 
 # Class for storing random variables
@@ -18,7 +39,9 @@ class State:
     trigger = False
     last_fuel_level = 0.0
     count = 1
+    print_sep = True
 
+# Func to open program
 def StartProgram(program):
     #SW_HIDE = 0
     #SW_MINIMIZE = 6
@@ -84,18 +107,35 @@ def WindDir():
         WindCard = "NW"
     return WindCard
 
+def PrintSep():
+    if state.print_sep == False:
+        print("====================")
+
+# Func to print session info
+def Session():
+        PrintSep()
+        print(SessInfo("SessionType"))
+        print("--------------------")
+        print("Skies: " + Sky(), "Air: " + str(round((ir['AirTemp'] * 1.8) + 32, 1)) + "f", "Surface: " + str(round((ir['TrackTempCrew'] * 1.8) + 32, 1)) + "f", "Wind: " + WindDir() + " @ " + str(round(ir['WindVel'] * 2.2369362920544025, 1)) + "mph", "Humidity: " + str(round(ir['RelativeHumidity'] * 100, 1)) + "%", "Pressure: " + str(round(ir['AirPressure'], 1)) + "Hg", sep=', ')
+        print("====================")
+        setattr(State, "print_sep", True)
+        setattr(State, "session", SessInfo("SessionType"))
+
 # iRacing status
 def check_iracing():
     if state.ir_connected and not (ir.is_initialized and ir.is_connected):
         state.ir_connected = False
         ir.shutdown()
-        print("====================")
+        PrintSep()
         print('iRSDK Disconnected')
         print("====================")
+        setattr(State, "print_sep", True)
     elif not state.ir_connected and ir.startup() and ir.is_initialized and ir.is_connected:
         state.ir_connected = True
+        PrintSep()
         print('iRSDK Connected')
         print("====================")
+        setattr(State, "print_sep", True)
 
         # Various one-time calls
         setattr(State, "driver_idx", ir['DriverInfo']['DriverCarIdx'])
@@ -106,13 +146,12 @@ def check_iracing():
         setattr(State, "count", ir['LapCompleted'] + 1)
 
         # Printing session info
-        print("Track: " + WkndInfo("TrackName", 0), "Car: " + DrvInfo("CarPath"), "Length: " + str(round(state.lap_distance, 2)) + "mi", "Date: " + WkndOpt("Date", 0) + " " + WkndOpt("TimeOfDay", 0) + WkndOpt("TimeOfDay", 1), "Rubber: " + SessInfo("SessionTrackRubberState"), sep=', ')
-        print("====================")
-        print(SessInfo("SessionType"))
+        PrintSep()
+        print("Weekend")
         print("--------------------")
-        print("Skies: " + Sky(), "Air: " + str(round((ir['AirTemp'] * 1.8) + 32, 1)) + "f", "Surface: " + str(round((ir['TrackTempCrew'] * 1.8) + 32, 1)) + "f", "Wind: " + WindDir() + " @ " + str(round(ir['WindVel'] * 2.2369362920544025, 1)) + "mph", "Humidity: " + str(round(ir['RelativeHumidity'] * 100, 1)) + "%", "Pressure: " + str(round(ir['AirPressure'], 1)) + "Hg", sep=', ')
-        print("====================")
-        setattr(State, "session", SessInfo("SessionType"))
+        print("Track: " + WkndInfo("TrackName", 0), "Car: " + DrvInfo("CarPath"), "Length: " + str(round(state.lap_distance, 2)) + "mi", "Date: " + WkndOpt("Date", 0) + " " + WkndOpt("TimeOfDay", 0) + WkndOpt("TimeOfDay", 1), "Rubber: " + SessInfo("SessionTrackRubberState"), sep=', ')
+        setattr(State, "print_sep", False)
+        Session()
 
 # Main loop
 def loop():
@@ -124,12 +163,7 @@ def loop():
     # Session type retrieval and change detection
     SessionType = SessInfo("SessionType")
     if SessionType != state.session:
-        print("====================")
-        print(SessInfo("SessionType"))
-        print("--------------------")
-        print("Skies: " + Sky(), "Air: " + str(round((ir['AirTemp'] * 1.8) + 32, 1)) + "f", "Surface: " + str(round((ir['TrackTempCrew'] * 1.8) + 32, 1)) + "f", "Wind: " + WindDir() + " @ " + str(round(ir['WindVel'] * 2.2369362920544025, 1)) + "mph", "Humidity: " + str(round(ir['RelativeHumidity'] * 100, 1)) + "%", "Pressure: " + str(round(ir['AirPressure'], 1)) + "Hg", sep=', ')
-        print("====================")
-        setattr(State, "session", SessInfo("SessionType"))
+        Session()
 
     # Lap completion trigger
     if ir['LapCompleted'] < state.count:
@@ -142,7 +176,7 @@ def loop():
         setattr(State, "trigger", True)
     
     # Things to do on lap complete
-    if state.trigger == True:
+    if state.trigger == True and state.fuel_level > 0:
         LapsCompleted = ir['LapCompleted']
 
         # Use time estimates if session is timed
@@ -167,6 +201,7 @@ def loop():
         # Info to print to file/terminal
         if LapsCompleted <= ir['SessionLapsTotal']:
             print("Lap ", LapsCompleted, " Report [Laps: ", round(FuelLaps, 2), " | Used: ", round(FuelUsed, 3), "gal | Used Rate Req: ", round(FuelUsedReq, 3), "gal | MPG: ", round(FuelMPG, 2), "mpg | MPG Req: ", round(FuelMPGReq, 2), "mpg | Total: ", round(FuelLevelReq, 3), "gal]", sep='')
+            setattr(State, "print_sep", False)
         # Send info to VoiceAttack and trigger commands    
         StartProgram('cmd /c "C:\Program Files (x86)\VoiceAttack\VoiceAttack.exe" -Command external_variables -PassedDecimal ' +(str(round(FuelLaps, 2)))+ ";" +(str(round(FuelUsed, 3)))+ ";" +(str(round(FuelUsedReq, 3)))+ ";" +(str(round(FuelMPG, 2)))+ ";" +(str(round(FuelMPGReq, 2)))+ ";" +(str(round(FuelLevelReq, 3))))
         time.sleep(0.1)
@@ -174,6 +209,9 @@ def loop():
             StartProgram('cmd /c "C:\Program Files (x86)\VoiceAttack\VoiceAttack.exe" -Command fuel_read')
 
         # Lap finishing actions
+        setattr(State, "last_fuel_level", state.fuel_level)
+        setattr(State, "trigger", False)
+    elif state.trigger == True and state.fuel_level <= 0:
         setattr(State, "last_fuel_level", state.fuel_level)
         setattr(State, "trigger", False)
 
@@ -188,7 +226,7 @@ if __name__ == '__main__':
             check_iracing()
             if state.ir_connected:
                 loop()
-            sys.stdout.flush()
+            te.flush()
             # Data read delay (min 1/60)
             time.sleep(1 / 15)
     except KeyboardInterrupt:
