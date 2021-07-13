@@ -3,15 +3,16 @@
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>fcc5c736-c1a8-429e-b5da-946e79abe898</ProjectGuid>
-    <ProjectHome>.</ProjectHome>
-    <StartupFile>iR_Info_Reader.py</StartupFile>
+    <ProjectHome>
+    </ProjectHome>
+    <StartupFile>iR_Fuel_Companion.pyw</StartupFile>
     <SearchPath>
     </SearchPath>
     <WorkingDirectory>.</WorkingDirectory>
     <OutputPath>.</OutputPath>
-    <Name>iR Info Reader</Name>
+    <Name>iR_Fuel_Companion</Name>
     <RootNamespace>iR Info Reader</RootNamespace>
-    <IsWindowsApplication>False</IsWindowsApplication>
+    <IsWindowsApplication>True</IsWindowsApplication>
     <TestFramework>pytest</TestFramework>
     <UnitTestPattern>test*.py</UnitTestPattern>
     <UnitTestRootDirectory>.</UnitTestRootDirectory>
@@ -26,7 +27,10 @@
     <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="iR_Info_Reader.py" />
+    <Compile Include="iR_Fuel_Companion.pyw" />
+    <Compile Include="reg.py">
+      <SubType>Code</SubType>
+    </Compile>
   </ItemGroup>
   <ItemGroup>
     <InterpreterReference Include="Global|PythonCore|3.9" />
