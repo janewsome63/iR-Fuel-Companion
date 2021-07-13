@@ -362,3 +362,5 @@ MigrationBackup/
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
 /pyinstaller
+/iR_Fuel_Companion.sln
+/iR_Fuel_Companion.pyproj
