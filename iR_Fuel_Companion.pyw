@@ -15,7 +15,7 @@ from datetime import datetime
 
 # Random variables
 class State:
-    version = "v0.0.3"
+    version = "v0.0.4"
     reg_path = 'Software\\iR Fuel Companion'
     ir_connected = False
     trigger = False
@@ -58,17 +58,17 @@ def StartProgram(program):
 
 def GetRegistry():
     if reg.get_reg(state.reg_path, 'Read'):
-        setattr(State, "fuel_read", str(reg.get_reg(state.reg_path, 'Read')))
+        setattr(State, "fuel_read", reg.get_reg(state.reg_path, 'Read'))
     if reg.get_reg(state.reg_path, 'Auto'):
-        setattr(State, "auto_fuel", str(reg.get_reg(state.reg_path, 'Auto')))
+        setattr(State, "auto_fuel", reg.get_reg(state.reg_path, 'Auto'))
     if reg.get_reg(state.reg_path, 'Pad'):
-        setattr(State, "fuel_pad", int(reg.get_reg(state.reg_path, 'Pad')))
+        setattr(State, "fuel_pad", reg.get_reg(state.reg_path, 'Pad'))
     SetRegistry()
 
 def SetRegistry():
-    reg.set_reg(state.reg_path, 'Read', str(state.fuel_read))
-    reg.set_reg(state.reg_path, 'Auto', str(state.auto_fuel))
-    reg.set_reg(state.reg_path, 'Pad', str(state.fuel_pad))
+    reg.set_reg(state.reg_path, 'Read', state.fuel_read)
+    reg.set_reg(state.reg_path, 'Auto', state.auto_fuel)
+    reg.set_reg(state.reg_path, 'Pad', state.fuel_pad)
 
 def SpeechThread(speech):
     pythoncom.CoInitialize()
@@ -121,7 +121,7 @@ def KeysThread():
                 speech_thread = threading.Thread(target=SpeechThread, args=("fuel reading enabled",))
                 speech_thread.start()
             time.sleep(0.75)
-        if keyboard.is_pressed('1') == 1:
+        if keyboard.is_pressed('ctrl+shift+f5') == True:
             time.sleep(0.25)
             if state.auto_fuel == 1:
                 setattr(State, "auto_fuel", 0)
@@ -153,7 +153,7 @@ def FuelCalc():
             setattr(Fuel, "laps_left", 999.00)
             setattr(Fuel, "mpg", 99.00)
         setattr(Fuel, "mpg_req", (telem.lap_distance * telem.laps_remaining) / fuel.level)
-        setattr(Fuel, "level_req", ((telem.laps_remaining + state.fuel_pad) * fuel.used_lap) - fuel.level)
+        setattr(Fuel, "level_req", (((telem.laps_remaining + state.fuel_pad) * fuel.used_lap) - fuel.level) * 1.05)
 
 def FuelingThread():
     Pitting = True

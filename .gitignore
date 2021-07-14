@@ -365,3 +365,5 @@ FodyWeavers.xsd
 /iR_Fuel_Companion.sln
 /iR_Fuel_Companion.pyproj
 /icon.ico
+/example.py
+/joystickapi.py
