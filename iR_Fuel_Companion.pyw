@@ -15,14 +15,14 @@ from datetime import datetime
 
 # Random variables
 class State:
-    version = "v0.0.1"
+    version = "v0.0.3"
     reg_path = 'Software\\iR Fuel Companion'
     ir_connected = False
     trigger = False
     count = 1
     print_sep = True
-    fuel_read = "True"
-    auto_fuel = "True"
+    fuel_read = 1
+    auto_fuel = 1
     fuel_pad = 2
 
 # Fuel variables
@@ -110,26 +110,26 @@ def KeysThread():
             time.sleep(0.75)
         if keyboard.is_pressed('ctrl+shift+f4') == True:
             time.sleep(0.25)
-            if state.fuel_read == "True":
-                setattr(State, "fuel_read", "False")
+            if state.fuel_read == 1:
+                setattr(State, "fuel_read", 0)
                 SetRegistry()
                 speech_thread = threading.Thread(target=SpeechThread, args=("fuel reading disabled",))
                 speech_thread.start()
-            elif state.fuel_read == "False":
-                setattr(State, "fuel_read", "True")
+            elif state.fuel_read == 0:
+                setattr(State, "fuel_read", 1)
                 SetRegistry()
                 speech_thread = threading.Thread(target=SpeechThread, args=("fuel reading enabled",))
                 speech_thread.start()
             time.sleep(0.75)
-        if keyboard.is_pressed('ctrl+shift+f5') == "True":
+        if keyboard.is_pressed('1') == 1:
             time.sleep(0.25)
-            if state.auto_fuel == "True":
-                setattr(State, "auto_fuel", "False")
+            if state.auto_fuel == 1:
+                setattr(State, "auto_fuel", 0)
                 SetRegistry()
                 speech_thread = threading.Thread(target=SpeechThread, args=("auto fuel disabled",))
                 speech_thread.start()
-            elif state.auto_fuel == "False":
-                setattr(State, "auto_fuel", "True")
+            elif state.auto_fuel == 0:
+                setattr(State, "auto_fuel", 1)
                 SetRegistry()
                 speech_thread = threading.Thread(target=SpeechThread, args=("auto fuel enabled",))
                 speech_thread.start()
@@ -159,7 +159,7 @@ def FuelingThread():
     Pitting = True
     PittingChgd = True
     while True:
-        while SessInfo("SessionType") == "Race" and state.auto_fuel == "True" and state.ir_connected == True:
+        while SessInfo("SessionType") == "Race" and state.auto_fuel == 1 and state.ir_connected == True:
             FuelLevelReqL = fuel.level_req_avg * 3.785411784
             FuelLastLevelL = fuel.last_level * 3.785411784
             if Pitting == True and PittingChgd == True:
@@ -335,6 +335,21 @@ def Loop():
 
         FuelCalc()
 
+        # Things to do if not under caution or in pit
+        if ir['CarIdxPaceLine'][telem.driver_idx] == -1 and ir['CarIdxTrackSurface'][telem.driver_idx] == 3 and ir['SessionState'] == 4 and fuel.used_lap > 0:
+            if len(last_level_req_list) >= 5:
+                last_level_req_list.pop(0)
+            last_level_req_list.append(fuel.level_req)
+            if len(last_level_req_list) > 0:
+                total = 0
+                for level in last_level_req_list:
+                    total = total + level
+                setattr(Fuel, "level_req_avg", total / len(last_level_req_list))
+            # TTS callouts
+            if state.fuel_read == 1 and SessionType != "Lone Qualify":
+                speech_thread = threading.Thread(target=SpeechThread, args=(str(round(fuel.laps_left, 2)) + " laps, " + str(round(fuel.used_lap, 3)) + " gallons",))
+                speech_thread.start()
+
         # Info to print to file/terminal
         if telem.laps_completed <= ir['SessionLapsTotal']:
             print("Lap ", telem.laps_completed, " Report [Laps: ", round(fuel.laps_left, 2), " | Used: ", round(fuel.used_lap, 3), "gal | Used Rate Req: ", round(fuel.used_lap_req, 3), "gal | MPG: ", round(fuel.mpg, 2), "mpg | MPG Req: ", round(fuel.mpg_req, 2), "mpg | Total: ", round(fuel.level_req_avg, 3), "gal]", sep='')
@@ -344,20 +359,6 @@ def Loop():
         #StartProgram('cmd /c "C:\Program Files (x86)\VoiceAttack\VoiceAttack.exe" -Command external_variables -PassedDecimal ' +(str(round(FuelLaps, 2)))+ ";" +(str(round(FuelUsed, 3)))+ ";" +(str(round(FuelUsedReq, 3)))+ ";" +(str(round(FuelMPG, 2)))+ ";" +(str(round(FuelMPGReq, 2)))+ ";" +(str(round(FuelLevelReq, 3))))
         #time.sleep(0.1)
         #StartProgram('cmd /c "C:\Program Files (x86)\VoiceAttack\VoiceAttack.exe" -Command fuel_read')
-
-        # TTS callouts
-        if state.fuel_read == "True" and ir['CarIdxPaceLine'][telem.driver_idx] == -1 and ir['CarIdxTrackSurface'][telem.driver_idx] == 3 and SessionType != "Lone Qualify" and ir['SessionState'] == 4 and fuel.used_lap > 0:
-            speech_thread = threading.Thread(target=SpeechThread, args=(str(round(fuel.laps_left, 2)) + " laps, " + str(round(fuel.used_lap, 3)) + " gallons",))
-            speech_thread.start()
-
-        if len(last_level_req_list) >= 5:
-            last_level_req_list.pop(0)
-        last_level_req_list.append(fuel.level_req)
-        if len(last_level_req_list) > 0:
-            total = 0
-            for level in last_level_req_list:
-                total = total + level
-            setattr(Fuel, "level_req_avg", total / len(last_level_req_list))
 
         # Lap finishing actions
         setattr(Fuel, "last_level", fuel.level)
@@ -404,21 +405,21 @@ def GuiThread():
 
     def CheckUpdate():
         time.sleep(1)
-        FuelReadPrev = "False"
-        AutoFuelPrev = "False"
+        FuelReadPrev = 0
+        AutoFuelPrev = 0
         while True:
             if state.fuel_read != FuelReadPrev:
-                if state.fuel_read == "True":
-                    window['FuelRead'].update("True")
-                if state.fuel_read == "False":
-                    window['FuelRead'].update("False")
+                if state.fuel_read == 1:
+                    window['FuelRead'].update(1)
+                if state.fuel_read == 0:
+                    window['FuelRead'].update(0)
                 FuelReadPrev = state.fuel_read
 
             if state.auto_fuel != AutoFuelPrev:
-                if state.auto_fuel == "True":
-                    window['FuelAuto'].update("True")
-                if state.auto_fuel == "False":
-                    window['FuelAuto'].update("False")
+                if state.auto_fuel == 1:
+                    window['FuelAuto'].update(1)
+                if state.auto_fuel == 0:
+                    window['FuelAuto'].update(0)
                 AutoFuelPrev = state.auto_fuel
             time.sleep(0.1)
 
@@ -431,22 +432,22 @@ def GuiThread():
             break
 
         if event == "FuelRead":
-            if values['FuelRead'] == True:
-                setattr(State, "fuel_read", True)
+            if values['FuelRead'] == 1:
+                setattr(State, "fuel_read", 1)
                 SetRegistry()
                 #print("Fuel reading enabled")
             else:
-                setattr(State, "fuel_read", False)
+                setattr(State, "fuel_read", 0)
                 SetRegistry()
                 #print("Fuel reading disabled")
         
         if event == "FuelAuto":
-            if values['FuelAuto'] == True:
-                setattr(State, "auto_fuel", True)
+            if values['FuelAuto'] == 1:
+                setattr(State, "auto_fuel", 1)
                 SetRegistry()
                 #print("Auto fuel enabled")
             else:
-                setattr(State, "auto_fuel", False)
+                setattr(State, "auto_fuel", 0)
                 SetRegistry()
                 #print("Auto fuel disabled")
 
