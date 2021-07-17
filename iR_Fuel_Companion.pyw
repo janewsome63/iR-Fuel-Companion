@@ -15,7 +15,7 @@ from datetime import datetime
 
 # Random variables
 class State:
-    version = "v0.0.4"
+    version = "v0.0.5"
     reg_path = 'Software\\iR Fuel Companion'
     ir_connected = False
     trigger = False
@@ -24,6 +24,7 @@ class State:
     fuel_read = 1
     auto_fuel = 1
     fuel_pad = 2
+    surface = 0
 
 # Fuel variables
 class Fuel:
@@ -181,6 +182,17 @@ def FuelingThread():
                 PittingChgd = True
             time.sleep(1/60)
         time.sleep(1/5)
+
+def TireInfo():
+    PrintSep()
+    print("Tire Wear")
+    print("----------------------------------------------------------------------------------------------------------------------------------")
+    print("LF: ", str(round(ir['LFwearL'] * 100, 2)) + "%", str(round(ir['LFwearM'] * 100, 2)) + "%", str(round(ir['LFwearR'] * 100, 2)) + "%", "     ", "RF: ", str(round(ir['RFwearL'] * 100, 2)) + "%", str(round(ir['RFwearM'] * 100, 2)) + "%", str(round(ir['RFwearR'] * 100, 2)) + "%")
+    print("")
+    print("LR: ", str(round(ir['LRwearL'] * 100, 2)) + "%", str(round(ir['LRwearM'] * 100, 2)) + "%", str(round(ir['LRwearR'] * 100, 2)) + "%", "     ", "RR: ", str(round(ir['RRwearL'] * 100, 2)) + "%", str(round(ir['RRwearM'] * 100, 2)) + "%", str(round(ir['RRwearR'] * 100, 2)) + "%")
+    print("==================================================================================================================================")
+    setattr(State, "print_sep", True)
+
 
 # Shorten DriverInfo calls
 def DrvInfo(group):
@@ -366,6 +378,12 @@ def Loop():
     elif state.trigger == True and fuel.level <= 0:
         setattr(Fuel, "last_level", fuel.level)
         setattr(State, "trigger", False)
+
+    if ir['CarIdxTrackSurface'][telem.driver_idx] != state.surface and ir['CarIdxTrackSurface'][telem.driver_idx] == 1:
+        time.sleep(5)
+        TireInfo()
+
+    setattr(State, "surface", ir['CarIdxTrackSurface'][telem.driver_idx])
 
 Date = datetime.now()
 DateStr = Date.strftime("%Y-%m-%d_%H.%M.%S")
