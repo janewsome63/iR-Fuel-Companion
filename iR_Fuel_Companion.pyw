@@ -15,7 +15,7 @@ from datetime import datetime
 
 # Random variables
 class State:
-    version = "v0.0.8"
+    version = "v0.0.9"
     reg_path = 'Software\\iR Fuel Companion'
     sep_1 = "=" * 135
     sep_2 = "-" * 135
@@ -209,10 +209,13 @@ def KeysThread():
             ir.chat_command(3)
             time.sleep(0.75)
         if keyboard.is_pressed('ctrl+shift+f2') == True:
+            LevelReqKey = fuel.level_req_avg
+            if state.fuel_max == 1:
+                LevelReqKey = fuel.level_req_max
             time.sleep(0.25)
             ir.chat_command(1)
             time.sleep(0.05)
-            keyboard.write("## To finish - " + units.vol(fuel.used_lap_req, "abv") + ", " + units.econ(fuel.eco_req) + ", " + units.vol(fuel.level_req_avg, "abv") + " extra ##")
+            keyboard.write("## To finish - " + units.vol(fuel.used_lap_req, "abv") + ", " + units.econ(fuel.eco_req) + ", " + units.vol(LevelReqKey, "abv") + " extra ##")
             time.sleep(0.05)
             keyboard.send('enter')
             time.sleep(0.05)
@@ -306,8 +309,12 @@ def FuelingThread():
         time.sleep(1/5)
 
 def PitReport():
-    fuel.stint_used_avg = fuel.stint_used / telem.stint_laps
-    fuel.stint_eco = (telem.stint_laps * telem.lap_distance) / fuel.stint_used
+    if fuel.stint_used > 0:
+        fuel.stint_used_avg = fuel.stint_used / telem.stint_laps
+        fuel.stint_eco = (telem.stint_laps * telem.lap_distance) / fuel.stint_used
+    else:
+        fuel.stint_used_avg = 0
+        fuel.stint_eco = 0
     ir.unfreeze_var_buffer_latest()
     PrintSep()
     print("Lap", telem.laps_completed + 1, "Pit Report")
@@ -447,7 +454,10 @@ def Loop():
     # Things to do on lap complete
     if state.trigger == True and fuel.level > 0:
         setattr(Telem, "laps_completed", ir['LapCompleted'])
-        telem.stint_laps = telem.stint_laps + 1
+        if telem.laps_completed <= 0:
+            telem.stint_laps = 0
+        else:
+            telem.stint_laps = telem.stint_laps + 1
 
         # Use time estimates if session is timed
         if ir['SessionLapsRemain'] > 5000 and ir['LapLastLapTime'] > 1:
@@ -480,10 +490,13 @@ def Loop():
 
         # Info to print to file/terminal
         if telem.laps_completed <= ir['SessionLapsTotal']:
+            LevelReq = fuel.level_req_avg
+            if state.fuel_max == 1:
+                LevelReq = fuel.level_req_max
             if SessInfo("SessionType") == "Offline Testing" or SessInfo("SessionType") == "Practice":
                 print("Lap ", telem.laps_completed, " [Laps: ", round(fuel.laps_left, 2), " | Used: ", units.vol(fuel.used_lap, "abv"), " | Eco: ", units.econ(fuel.eco), "]", sep='')
             else:
-                print("Lap ", telem.laps_completed, " [Laps: ", round(fuel.laps_left, 2), " | Used: ", units.vol(fuel.used_lap, "abv"), " | Used Rate Req: ", units.vol(fuel.used_lap_req, "abv"), " | Eco: ", units.econ(fuel.eco), " | Eco Req: ", units.econ(fuel.eco_req), " | Total: ", units.vol(fuel.level_req_avg, "abv"), "]", sep='')
+                print("Lap ", telem.laps_completed, " [Laps: ", round(fuel.laps_left, 2), " | Used: ", units.vol(fuel.used_lap, "abv"), " | Used Rate Req: ", units.vol(fuel.used_lap_req, "abv"), " | Eco: ", units.econ(fuel.eco), " | Eco Req: ", units.econ(fuel.eco_req), " | Total: ", units.vol(LevelReq, "abv"), "]", sep='')
             setattr(State, "print_sep", False)
 
         # Lap finishing actions
@@ -494,9 +507,10 @@ def Loop():
         setattr(State, "trigger", False)
 
     # Pit report
+
     if ir['CarIdxTrackSurface'][telem.driver_idx] != state.surface and ir['CarIdxTrackSurface'][telem.driver_idx] == 1 or ir['CarIdxTrackSurface'][telem.driver_idx] != state.surface and ir['CarIdxTrackSurface'][telem.driver_idx] == -1:
         fuel.stint_used = fuel.last_pit_level - ir['FuelLevel']
-        if fuel.stint_used < 0:
+        if fuel.stint_used <= 0:
             fuel.stint_used = fuel.last_pit_level - fuel.last_level
         time.sleep(3)
         if telem.stint_laps > 0:
