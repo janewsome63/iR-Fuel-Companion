@@ -11,11 +11,12 @@ import threading
 import pythoncom
 import PySimpleGUI as sg
 import win32com.client as wincl
+import math
 from datetime import datetime
 
 # Random variables
 class State:
-    version = "v0.0.9"
+    version = "v0.0.10"
     reg_path = 'Software\\iR Fuel Companion'
     sep_1 = "=" * 135
     sep_2 = "-" * 135
@@ -138,8 +139,13 @@ class Units:
 # Fuel variables
 class Fuel:
     level = 0.0
+    pct = 0.0
+    level_full = 0.0
     last_level = 0.0
     used_lap = 0.0
+    used_lap_avg = 0.0
+    used_lap_max = 0.0
+    used_lap_list = []
     used_lap_req = 0.0
     laps_left = 0.0
     eco = 0.0
@@ -147,11 +153,13 @@ class Fuel:
     level_req = 0.0
     level_req_max = 0.0
     level_req_avg = 0.0
-    last_level_req_list = []
     stint_used = 0.0
     stint_used_avg = 0.0
     stint_eco = 0.0
     last_pit_level = 0.0
+    stops = 0
+    stops_avg = 0
+    stops_max = 0
 
 # Other iR telemetry variables
 class Telem:
@@ -202,20 +210,17 @@ def KeysThread():
             time.sleep(0.25)
             ir.chat_command(1)
             time.sleep(0.05)
-            keyboard.write("## Current pace - " + str(round(fuel.laps_left, 2)) + " laps, " + units.vol(fuel.used_lap, "abv") + ", " + units.econ(fuel.eco) + " ##")
+            keyboard.write("## Current pace - " + str(round(fuel.laps_left, 2)) + " laps, " + units.vol(fuel.used_lap, "abv") + ", " + units.econ(fuel.eco) + ", " + units.vol(fuel.level_req, "abv") + "(" + str(fuel.stops) + ") extra ##")
             time.sleep(0.05)
             keyboard.send('enter')
             time.sleep(0.05)
             ir.chat_command(3)
             time.sleep(0.75)
         if keyboard.is_pressed('ctrl+shift+f2') == True:
-            LevelReqKey = fuel.level_req_avg
-            if state.fuel_max == 1:
-                LevelReqKey = fuel.level_req_max
             time.sleep(0.25)
             ir.chat_command(1)
             time.sleep(0.05)
-            keyboard.write("## To finish - " + units.vol(fuel.used_lap_req, "abv") + ", " + units.econ(fuel.eco_req) + ", " + units.vol(LevelReqKey, "abv") + " extra ##")
+            keyboard.write("## To finish - " + units.vol(fuel.used_lap_req, "abv") + ", " + units.econ(fuel.eco_req) + ", " + units.vol(fuel.level_req_avg, "abv") + "(" + str(fuel.stops_avg) + ") avg, " + units.vol(fuel.level_req_max, "abv") + "(" + str(fuel.stops_max) + ") max ##")
             time.sleep(0.05)
             keyboard.send('enter')
             time.sleep(0.05)
@@ -264,6 +269,8 @@ def KeysThread():
 
 # Fuel calculations
 def FuelCalc():
+        if fuel.level_full == 0.0:
+            fuel.level_full = fuel.level / fuel.pct
         if telem.laps_remaining > 0:
             setattr(Fuel, "used_lap_req", fuel.level / telem.laps_remaining)
         else:
@@ -278,7 +285,36 @@ def FuelCalc():
             setattr(Fuel, "laps_left", 999.00)
             setattr(Fuel, "eco", 99.00)
         setattr(Fuel, "eco_req", (telem.lap_distance * telem.laps_remaining) / fuel.level)
-        setattr(Fuel, "level_req", (((telem.laps_remaining + state.fuel_pad) * fuel.used_lap) - fuel.level))
+        if ir['CarIdxPaceLine'][telem.driver_idx] == -1 and ir['CarIdxTrackSurface'][telem.driver_idx] == 3 and ir['SessionState'] == 4 and telem.stint_laps > 1:
+            if len(fuel.used_lap_list) >= 5:
+                fuel.used_lap_list.pop(0)
+            fuel.used_lap_list.append(fuel.used_lap)
+            if len(fuel.used_lap_list) > 0:
+                total = 0
+                for used in fuel.used_lap_list:
+                    total = total + used
+                fuel.used_lap_avg = total / len(fuel.used_lap_list)
+            if fuel.used_lap > fuel.used_lap_max:
+                fuel.used_lap_max = fuel.used_lap
+        fuel.level_req = (((telem.laps_remaining + state.fuel_pad) * fuel.used_lap) - fuel.level)
+        if fuel.level_req < 0:
+            fuel.level_req = 0.0
+        fuel.level_req_avg = (((telem.laps_remaining + state.fuel_pad) * fuel.used_lap_avg) - fuel.level)
+        if fuel.level_req_avg < 0:
+            fuel.level_req_avg = 0.0
+        fuel.level_req_max = (((telem.laps_remaining + state.fuel_pad) * fuel.used_lap_max) - fuel.level)
+        if fuel.level_req_max < 0:
+            fuel.level_req_max = 0.0
+
+        fuel.stops = math.ceil((fuel.level_req / fuel.level_full) - 1)
+        if fuel.stops < 0:
+            fuel.stops = 0
+        fuel.stops_avg = math.ceil((fuel.level_req_avg / fuel.level_full) - 1)
+        if fuel.stops_avg < 0:
+            fuel.stops_avg = 0
+        fuel.stops_max = math.ceil((fuel.level_req_max / fuel.level_full) - 1)
+        if fuel.stops_max < 0:
+            fuel.stops_max = 0
 
 def FuelingThread():
     Pitting = True
@@ -334,8 +370,6 @@ def PitReport():
     print("LR: ", units.temp(ir['LRtempCL']), units.temp(ir['LRtempCM']), units.temp(ir['LRtempCR']), "     ", "RR: ", units.temp(ir['RRtempCL']), units.temp(ir['RRtempCM']), units.temp(ir['RRtempCR']))
     print(state.sep_1)
     setattr(State, "print_sep", True)
-    fuel.level_req_max = 0.0
-    fuel.last_level_req_list.clear()
     telem.stint_laps = 0
     fuel.stint_used = 0.0
 
@@ -448,6 +482,7 @@ def Loop():
         setattr(State, "count", ir['LapCompleted'] + 1)
     elif ir['LapCompleted'] == state.count:
         setattr(Fuel, "level", ir['FuelLevel'])
+        setattr(Fuel, "pct", ir['FuelLevelPct'])
         setattr(State, "count", state.count + 1)
         setattr(State, "trigger", True)
     
@@ -473,16 +508,7 @@ def Loop():
 
         # Things to do if not under caution or in pit
         if ir['CarIdxPaceLine'][telem.driver_idx] == -1 and ir['CarIdxTrackSurface'][telem.driver_idx] == 3 and ir['SessionState'] == 4 and telem.stint_laps > 1:
-            if fuel.level_req + 2 > fuel.level_req_max:
-                fuel.level_req_max = fuel.level_req + 2 # 2 extra liters added for safety
-            if len(fuel.last_level_req_list) >= 5:
-                fuel.last_level_req_list.pop(0)
-            fuel.last_level_req_list.append(fuel.level_req)
-            if len(fuel.last_level_req_list) > 0:
-                total = 0
-                for level in fuel.last_level_req_list:
-                    total = total + level
-                setattr(Fuel, "level_req_avg", (total / len(fuel.last_level_req_list)) + 2) # 2 extra liters added for safety
+
             # TTS callouts
             if state.fuel_read == 1 and SessionType != "Lone Qualify":
                 speech_thread = threading.Thread(target=SpeechThread, args=(str(round(fuel.laps_left, 2)) + " laps, " + units.vol(fuel.used_lap, "full"),))
@@ -490,13 +516,10 @@ def Loop():
 
         # Info to print to file/terminal
         if telem.laps_completed <= ir['SessionLapsTotal']:
-            LevelReq = fuel.level_req_avg
-            if state.fuel_max == 1:
-                LevelReq = fuel.level_req_max
             if SessInfo("SessionType") == "Offline Testing" or SessInfo("SessionType") == "Practice":
                 print("Lap ", telem.laps_completed, " [Laps: ", round(fuel.laps_left, 2), " | Used: ", units.vol(fuel.used_lap, "abv"), " | Eco: ", units.econ(fuel.eco), "]", sep='')
             else:
-                print("Lap ", telem.laps_completed, " [Laps: ", round(fuel.laps_left, 2), " | Used: ", units.vol(fuel.used_lap, "abv"), " | Used Rate Req: ", units.vol(fuel.used_lap_req, "abv"), " | Eco: ", units.econ(fuel.eco), " | Eco Req: ", units.econ(fuel.eco_req), " | Total: ", units.vol(LevelReq, "abv"), "]", sep='')
+                print("Lap ", telem.laps_completed, " [Laps: ", round(fuel.laps_left, 2), " | Used: ", units.vol(fuel.used_lap, "abv"), " | Used Rate Req: ", units.vol(fuel.used_lap_req, "abv"), " | Eco: ", units.econ(fuel.eco), " | Eco Req: ", units.econ(fuel.eco_req), " | Max: ", units.vol(fuel.level_req_max, "abv"), " | Avg: ", units.vol(fuel.level_req_avg, "abv"), "]", sep='')
             setattr(State, "print_sep", False)
 
         # Lap finishing actions
