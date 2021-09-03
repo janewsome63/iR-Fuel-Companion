@@ -433,6 +433,7 @@ def Check_iRacing():
         print(state.sep_1)
         setattr(State, "print_sep", True)
         setattr(Telem, "session", 0)
+        fuel.level_full = 0.0
     elif not state.ir_connected and ir.startup() and ir.is_initialized and ir.is_connected:
         state.ir_connected = True
         PrintSep()
@@ -508,7 +509,6 @@ def Loop():
 
         # Things to do if not under caution or in pit
         if ir['CarIdxPaceLine'][telem.driver_idx] == -1 and ir['CarIdxTrackSurface'][telem.driver_idx] == 3 and ir['SessionState'] == 4 and telem.stint_laps > 1:
-
             # TTS callouts
             if state.fuel_read == 1 and SessionType != "Lone Qualify":
                 speech_thread = threading.Thread(target=SpeechThread, args=(str(round(fuel.laps_left, 2)) + " laps, " + units.vol(fuel.used_lap, "full"),))
