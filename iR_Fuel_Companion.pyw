@@ -16,7 +16,7 @@ from datetime import datetime
 
 # Random variables
 class State:
-    version = "v0.0.10"
+    version = "v0.0.11"
     reg_path = 'Software\\iR Fuel Companion'
     sep_1 = "=" * 135
     sep_2 = "-" * 135
@@ -296,23 +296,23 @@ def FuelCalc():
                 fuel.used_lap_avg = total / len(fuel.used_lap_list)
             if fuel.used_lap > fuel.used_lap_max:
                 fuel.used_lap_max = fuel.used_lap
-        fuel.level_req = (((telem.laps_remaining + state.fuel_pad) * fuel.used_lap) - fuel.level)
+        fuel.level_req = ((telem.laps_remaining * fuel.used_lap) - fuel.level)
         if fuel.level_req < 0:
             fuel.level_req = 0.0
-        fuel.level_req_avg = (((telem.laps_remaining + state.fuel_pad) * fuel.used_lap_avg) - fuel.level)
+        fuel.level_req_avg = ((telem.laps_remaining * fuel.used_lap_avg) - fuel.level)
         if fuel.level_req_avg < 0:
             fuel.level_req_avg = 0.0
-        fuel.level_req_max = (((telem.laps_remaining + state.fuel_pad) * fuel.used_lap_max) - fuel.level)
+        fuel.level_req_max = ((telem.laps_remaining * fuel.used_lap_max) - fuel.level)
         if fuel.level_req_max < 0:
             fuel.level_req_max = 0.0
 
-        fuel.stops = math.ceil((fuel.level_req / fuel.level_full) - 1)
+        fuel.stops = math.ceil(fuel.level_req / fuel.level_full)
         if fuel.stops < 0:
             fuel.stops = 0
-        fuel.stops_avg = math.ceil((fuel.level_req_avg / fuel.level_full) - 1)
+        fuel.stops_avg = math.ceil(fuel.level_req_avg / fuel.level_full)
         if fuel.stops_avg < 0:
             fuel.stops_avg = 0
-        fuel.stops_max = math.ceil((fuel.level_req_max / fuel.level_full) - 1)
+        fuel.stops_max = math.ceil(fuel.level_req_max / fuel.level_full)
         if fuel.stops_max < 0:
             fuel.stops_max = 0
 
@@ -322,9 +322,9 @@ def FuelingThread():
     while True:
         while SessInfo("SessionType") == "Race" and state.auto_fuel == 1 and state.ir_connected == True:
             if Pitting == True and PittingChgd == True:
-                FuelAdd = fuel.level_req_avg
+                FuelAdd = fuel.level_req_avg + (fuel.used_lap_avg * state.fuel_pad)
                 if state.fuel_max == 1:
-                    FuelAdd = fuel.level_req_max
+                    FuelAdd = fuel.level_req_max + (fuel.used_lap_max * state.fuel_pad)
                 if FuelAdd + fuel.last_level <= ir['FuelLevel']:
                     ir.pit_command(11)
                 if FuelAdd + fuel.last_level > ir['FuelLevel']:
