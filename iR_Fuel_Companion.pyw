@@ -16,7 +16,7 @@ from datetime import datetime
 
 # Random variables
 class State:
-    version = "v0.0.12"
+    version = "v0.0.13"
     reg_path = 'Software\\iR Fuel Companion'
     sep_1 = "=" * 135
     sep_2 = "-" * 135
@@ -29,6 +29,8 @@ class State:
     auto_fuel = 1
     fuel_max = 0
     fuel_pad = 2
+    practice_laps = 0
+    reset_laps = 0
     surface = -1
 
 # Variables and functions for units and conversion
@@ -191,6 +193,8 @@ def GetRegistry():
         setattr(State, "fuel_max", reg.get_reg(state.reg_path, 'Max'))
     if reg.get_reg(state.reg_path, 'Pad'):
         setattr(State, "fuel_pad", reg.get_reg(state.reg_path, 'Pad'))
+    if reg.get_reg(state.reg_path, 'Laps'):
+        setattr(State, "practice_laps", reg.get_reg(state.reg_path, 'Laps'))
     SetRegistry()
 
 def SetRegistry():
@@ -198,6 +202,7 @@ def SetRegistry():
     reg.set_reg(state.reg_path, 'Auto', state.auto_fuel)
     reg.set_reg(state.reg_path, 'Max', state.fuel_max)
     reg.set_reg(state.reg_path, 'Pad', state.fuel_pad)
+    reg.set_reg(state.reg_path, 'Laps', state.practice_laps)
 
 def SpeechThread(speech):
     pythoncom.CoInitialize()
@@ -221,7 +226,7 @@ def KeysThread():
             time.sleep(0.25)
             ir.chat_command(1)
             time.sleep(0.05)
-            keyboard.write("## To finish - " + units.vol(fuel.used_lap_req, "abv") + ", " + units.econ(fuel.eco_req) + ", " + units.vol(fuel.level_req_avg, "abv") + "(" + str(fuel.stops_avg) + ") avg, " + units.vol(fuel.level_req_max, "abv") + "(" + str(fuel.stops_max) + ") max ##")
+            keyboard.write("## To finish - " + str(telem.laps_remaining) + " laps, " + units.vol(fuel.used_lap_req, "abv") + ", " + units.econ(fuel.eco_req) + ", " + units.vol(fuel.level_req_avg, "abv") + "(" + str(fuel.stops_avg) + ") avg, " + units.vol(fuel.level_req_max, "abv") + "(" + str(fuel.stops_max) + ") max ##")
             time.sleep(0.05)
             keyboard.send('enter')
             time.sleep(0.05)
@@ -454,7 +459,7 @@ def Check_iRacing():
         TrackLengthSpl = TrackLength.split()
         setattr(Telem, "lap_distance", float(TrackLengthSpl[0]))
         setattr(Fuel, "last_level", ir['FuelLevel'])
-        setattr(Fuel, "max_pct", DrvInfo("DriverCarMaxFuelPct", 0))
+        fuel.max_pct = DrvInfo("DriverCarMaxFuelPct", 0)
         setattr(State, "count", ir['LapCompleted'] + 1)
         
         fueling_thread = threading.Thread(target=FuelingThread)
@@ -464,7 +469,7 @@ def Check_iRacing():
         PrintSep()
         print("Weekend")
         print(state.sep_2)
-        print("Track: " + WkndInfo("TrackName", 0), "Car: " + DrvInfo("Driver", "CarPath"), "Length: " + units.dist(telem.lap_distance, "km"), "Date: " + WkndOpt("Date", 0) + " " + WkndOpt("TimeOfDay", 0) + WkndOpt("TimeOfDay", 1), "Rubber: " + SessInfo("SessionTrackRubberState"), sep=', ')
+        print("Track: " + WkndInfo("TrackName", 0), "Car: " + DrvInfo("Drivers", "CarPath"), "Length: " + units.dist(telem.lap_distance, "km"), "Date: " + WkndOpt("Date", 0) + " " + WkndOpt("TimeOfDay", 0) + WkndOpt("TimeOfDay", 1), "Rubber: " + SessInfo("SessionTrackRubberState"), "Max Fuel: " + units.pct(fuel.max_pct), sep=', ')
         setattr(State, "print_sep", False)
         Session()
 
@@ -481,6 +486,18 @@ def Loop():
     if SessionType != telem.session:
         Session()
 
+    fuel.max_pct = DrvInfo("DriverCarMaxFuelPct", 0)
+
+    if telem.session == "Practice" or telem.session == "Offline Testing":
+        if ir['OilTemp'] == 77.0 and state.reset_laps == 1:
+            telem.laps_completed = 0
+            fuel.used_lap_avg = 0.0
+            fuel.used_lap_max = 0.0
+            fuel.used_lap_list = []
+            state.reset_laps = 0
+        elif ir['OilTemp'] != 77.0:
+            state.reset_laps = 1
+
     # Lap completion trigger
     if ir['LapCompleted'] < state.count:
         setattr(State, "count", ir['LapCompleted'] + 1)
@@ -494,14 +511,19 @@ def Loop():
     
     # Things to do on lap complete
     if state.trigger == True and fuel.level > 0:
-        setattr(Telem, "laps_completed", ir['LapCompleted'])
+        if telem.session == "Practice" or telem.session == "Offline Testing":
+            telem.laps_completed = telem.laps_completed + 1
+        else:
+            telem.laps_completed = ir['LapCompleted']
         if telem.laps_completed <= 0:
             telem.stint_laps = 0
         else:
             telem.stint_laps = telem.stint_laps + 1
 
-        # Use time estimates if session is timed
-        if ir['SessionLapsRemain'] > 5000 and ir['LapLastLapTime'] > 1:
+        # Use fake race laps if practice or testing, use time if no set laps, use race laps else
+        if telem.session == "Practice" or telem.session == "Offline Testing":
+            telem.laps_remaining = state.practice_laps - telem.laps_completed
+        elif ir['SessionLapsRemain'] > 5000 and ir['LapLastLapTime'] > 1:
             setattr(Telem, "laps_remaining", round(ir['SessionTimeRemain'] / ir['LapLastLapTime'], 0))
         elif ir['SessionLapsRemain'] > 5000 and ir['LapLastLapTime'] < 1:
             setattr(Telem, "laps_remaining", round(ir['SessionTimeRemain'] / (telem.lap_distance / (100 / 3600)), 0))
@@ -578,6 +600,7 @@ def GuiThread():
 
     left_layout = [[sg.Text(text = "Hotkeys:\n\nCtrl+Shift+F1: Print current pace info\nCtrl+Shift+F2: Print fuel to finish info\nCtrl+Shift+F3: Toggle using max fuel usage for auto fueling\nCtrl+Shift+F4: Toggle fuel reading\nCtrl+Shift+F5: Toggle auto fueling")],
                    [sg.Text(text = "Extra laps when auto fueling:"), sg.Spin(values=[i for i in range(0, 26)], initial_value = state.fuel_pad, key = 'FuelPad', enable_events = True)],
+                   [sg.Text(text = "Number of laps for race simulation:"), sg.Spin(values=[i for i in range(0, 999)], initial_value = state.practice_laps, key = 'PracLaps', enable_events = True)],
                    [sg.Checkbox('Toggle Fuel Reading', default = state.fuel_read, key = 'FuelRead', enable_events = True), sg.Checkbox('Toggle Auto Fueling', default = state.auto_fuel, key = 'FuelAuto', enable_events = True)],
                    [sg.Checkbox('Use Max Fuel Usage for Auto Fuel', default = state.fuel_max, key = 'FuelMax', enable_events = True)]]
 
@@ -655,6 +678,9 @@ def GuiThread():
 
         if event == "FuelPad":
             setattr(State, "fuel_pad", values['FuelPad'])
+            SetRegistry()
+        if event == "PracLaps":
+            setattr(State, "practice_laps", values['PracLaps'])
             SetRegistry()
         time.sleep(0.1)
     os._exit(1)
