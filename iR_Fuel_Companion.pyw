@@ -16,7 +16,7 @@ from datetime import datetime
 
 # Random variables
 class State:
-    version = "v0.0.11"
+    version = "v0.0.12"
     reg_path = 'Software\\iR Fuel Companion'
     sep_1 = "=" * 135
     sep_2 = "-" * 135
@@ -140,6 +140,7 @@ class Units:
 class Fuel:
     level = 0.0
     pct = 0.0
+    max_pct = 0.0
     level_full = 0.0
     last_level = 0.0
     used_lap = 0.0
@@ -306,13 +307,13 @@ def FuelCalc():
         if fuel.level_req_max < 0:
             fuel.level_req_max = 0.0
 
-        fuel.stops = math.ceil(fuel.level_req / fuel.level_full)
+        fuel.stops = math.ceil(fuel.level_req / (fuel.level_full * fuel.max_pct))
         if fuel.stops < 0:
             fuel.stops = 0
-        fuel.stops_avg = math.ceil(fuel.level_req_avg / fuel.level_full)
+        fuel.stops_avg = math.ceil(fuel.level_req_avg / (fuel.level_full * fuel.max_pct))
         if fuel.stops_avg < 0:
             fuel.stops_avg = 0
-        fuel.stops_max = math.ceil(fuel.level_req_max / fuel.level_full)
+        fuel.stops_max = math.ceil(fuel.level_req_max / (fuel.level_full * fuel.max_pct))
         if fuel.stops_max < 0:
             fuel.stops_max = 0
 
@@ -374,8 +375,11 @@ def PitReport():
     fuel.stint_used = 0.0
 
 # Shorten DriverInfo calls
-def DrvInfo(group):
-    return ir['DriverInfo']['Drivers'][telem.driver_idx][group]
+def DrvInfo(group, subgroup):
+    if subgroup == 0:
+        return ir['DriverInfo'][group]
+    else:
+        return ir['DriverInfo'][group][telem.driver_idx][subgroup]
 
 # Shorten WeekendInfo calls (and also split string)
 def WkndInfo(group, n):
@@ -450,6 +454,7 @@ def Check_iRacing():
         TrackLengthSpl = TrackLength.split()
         setattr(Telem, "lap_distance", float(TrackLengthSpl[0]))
         setattr(Fuel, "last_level", ir['FuelLevel'])
+        setattr(Fuel, "max_pct", DrvInfo("DriverCarMaxFuelPct", 0))
         setattr(State, "count", ir['LapCompleted'] + 1)
         
         fueling_thread = threading.Thread(target=FuelingThread)
@@ -459,7 +464,7 @@ def Check_iRacing():
         PrintSep()
         print("Weekend")
         print(state.sep_2)
-        print("Track: " + WkndInfo("TrackName", 0), "Car: " + DrvInfo("CarPath"), "Length: " + units.dist(telem.lap_distance, "km"), "Date: " + WkndOpt("Date", 0) + " " + WkndOpt("TimeOfDay", 0) + WkndOpt("TimeOfDay", 1), "Rubber: " + SessInfo("SessionTrackRubberState"), sep=', ')
+        print("Track: " + WkndInfo("TrackName", 0), "Car: " + DrvInfo("Driver", "CarPath"), "Length: " + units.dist(telem.lap_distance, "km"), "Date: " + WkndOpt("Date", 0) + " " + WkndOpt("TimeOfDay", 0) + WkndOpt("TimeOfDay", 1), "Rubber: " + SessInfo("SessionTrackRubberState"), sep=', ')
         setattr(State, "print_sep", False)
         Session()
 
