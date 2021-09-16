@@ -16,7 +16,7 @@ from datetime import datetime
 
 # Random variables
 class State:
-    version = "v0.0.13"
+    version = "v0.0.14"
     reg_path = 'Software\\iR Fuel Companion'
     sep_1 = "=" * 135
     sep_2 = "-" * 135
@@ -30,6 +30,7 @@ class State:
     fuel_max = 0
     fuel_pad = 2
     practice_laps = 0
+    practice_fuelpct = 100
     reset_laps = 0
     surface = -1
 
@@ -186,15 +187,17 @@ def StartProgram(program):
 
 def GetRegistry():
     if reg.get_reg(state.reg_path, 'Read'):
-        setattr(State, "fuel_read", reg.get_reg(state.reg_path, 'Read'))
+        state.fuel_read = reg.get_reg(state.reg_path, 'Read')
     if reg.get_reg(state.reg_path, 'Auto'):
-        setattr(State, "auto_fuel", reg.get_reg(state.reg_path, 'Auto'))
+        state.auto_fuel = reg.get_reg(state.reg_path, 'Auto')
     if reg.get_reg(state.reg_path, 'Max'):
-        setattr(State, "fuel_max", reg.get_reg(state.reg_path, 'Max'))
+        state.fuel_max = reg.get_reg(state.reg_path, 'Max')
     if reg.get_reg(state.reg_path, 'Pad'):
-        setattr(State, "fuel_pad", reg.get_reg(state.reg_path, 'Pad'))
+        state.fuel_pad = reg.get_reg(state.reg_path, 'Pad')
     if reg.get_reg(state.reg_path, 'Laps'):
-        setattr(State, "practice_laps", reg.get_reg(state.reg_path, 'Laps'))
+        state.practice_laps = reg.get_reg(state.reg_path, 'Laps')
+    if reg.get_reg(state.reg_path, 'Pct'):
+        state.practice_fuelpct = reg.get_reg(state.reg_path, 'Pct')
     SetRegistry()
 
 def SetRegistry():
@@ -203,6 +206,7 @@ def SetRegistry():
     reg.set_reg(state.reg_path, 'Max', state.fuel_max)
     reg.set_reg(state.reg_path, 'Pad', state.fuel_pad)
     reg.set_reg(state.reg_path, 'Laps', state.practice_laps)
+    reg.set_reg(state.reg_path, 'Pct', state.practice_fuelpct)
 
 def SpeechThread(speech):
     pythoncom.CoInitialize()
@@ -235,12 +239,12 @@ def KeysThread():
         if keyboard.is_pressed('ctrl+shift+f3') == True:
             time.sleep(0.25)
             if state.fuel_max == 1:
-                setattr(State, "fuel_max", 0)
+                state.fuel_max = 0
                 SetRegistry()
                 speech_thread = threading.Thread(target=SpeechThread, args=("using average fuel usage for auto fuel",))
                 speech_thread.start()
             elif state.fuel_max == 0:
-                setattr(State, "fuel_max", 1)
+                state.fuel_max = 1
                 SetRegistry()
                 speech_thread = threading.Thread(target=SpeechThread, args=("using max fuel usage for auto fuel",))
                 speech_thread.start()
@@ -248,12 +252,12 @@ def KeysThread():
         if keyboard.is_pressed('ctrl+shift+f4') == True:
             time.sleep(0.25)
             if state.fuel_read == 1:
-                setattr(State, "fuel_read", 0)
+                state.fuel_read = 0
                 SetRegistry()
                 speech_thread = threading.Thread(target=SpeechThread, args=("fuel reading disabled",))
                 speech_thread.start()
             elif state.fuel_read == 0:
-                setattr(State, "fuel_read", 1)
+                state.fuel_read =  1
                 SetRegistry()
                 speech_thread = threading.Thread(target=SpeechThread, args=("fuel reading enabled",))
                 speech_thread.start()
@@ -261,12 +265,12 @@ def KeysThread():
         if keyboard.is_pressed('ctrl+shift+f5') == True:
             time.sleep(0.25)
             if state.auto_fuel == 1:
-                setattr(State, "auto_fuel", 0)
+                state.auto_fuel = 0
                 SetRegistry()
                 speech_thread = threading.Thread(target=SpeechThread, args=("auto fuel disabled",))
                 speech_thread.start()
             elif state.auto_fuel == 0:
-                setattr(State, "auto_fuel", 1)
+                state.auto_fuel =  1
                 SetRegistry()
                 speech_thread = threading.Thread(target=SpeechThread, args=("auto fuel enabled",))
                 speech_thread.start()
@@ -278,19 +282,19 @@ def FuelCalc():
         if fuel.level_full == 0.0:
             fuel.level_full = fuel.level / fuel.pct
         if telem.laps_remaining > 0:
-            setattr(Fuel, "used_lap_req", fuel.level / telem.laps_remaining)
+            fuel.used_lap_req = fuel.level / telem.laps_remaining
         else:
-            setattr(Fuel, "used_lap_req", 0.000)
-        setattr(Fuel, "used_lap", fuel.last_level - fuel.level)
+            fuel.used_lap_req = 0.000
+        fuel.used_lap = fuel.last_level - fuel.level
         if fuel.used_lap < 0:
-            setattr(Fuel, "used_lap", fuel.last_pit_level - fuel.level)
+            fuel.used_lap = fuel.last_pit_level - fuel.level
         if fuel.used_lap > 0:
-            setattr(Fuel, "laps_left", fuel.level / fuel.used_lap)
-            setattr(Fuel, "eco", telem.lap_distance / fuel.used_lap)
+            fuel.laps_left = fuel.level / fuel.used_lap
+            fuel.eco = telem.lap_distance / fuel.used_lap
         else:
-            setattr(Fuel, "laps_left", 999.00)
-            setattr(Fuel, "eco", 99.00)
-        setattr(Fuel, "eco_req", (telem.lap_distance * telem.laps_remaining) / fuel.level)
+            fuel.laps_left = 999.00
+            fuel.eco = 99.00
+        fuel.eco_req = (telem.lap_distance * telem.laps_remaining) / fuel.level
         if ir['CarIdxPaceLine'][telem.driver_idx] == -1 and ir['CarIdxTrackSurface'][telem.driver_idx] == 3 and ir['SessionState'] == 4 and telem.stint_laps > 1:
             if len(fuel.used_lap_list) >= 5:
                 fuel.used_lap_list.pop(0)
@@ -375,7 +379,7 @@ def PitReport():
     print("")
     print("LR: ", units.temp(ir['LRtempCL']), units.temp(ir['LRtempCM']), units.temp(ir['LRtempCR']), "     ", "RR: ", units.temp(ir['RRtempCL']), units.temp(ir['RRtempCM']), units.temp(ir['RRtempCR']))
     print(state.sep_1)
-    setattr(State, "print_sep", True)
+    state.print_sep = True
     telem.stint_laps = 0
     fuel.stint_used = 0.0
 
@@ -429,8 +433,15 @@ def Session():
         print(state.sep_2)
         print("Skies: " + Sky(), "Air: " + units.temp(ir['AirTemp']), "Surface: " + units.temp(ir['TrackTempCrew']), "Wind: " + units.wind_dir() + " @ " + units.speed(ir['WindVel']), "Humidity: " + units.pct(ir['RelativeHumidity']), "Pressure: " + units.press(ir['AirPressure']), "Density: " + units.dens(ir['AirDensity']), sep=', ')
         print(state.sep_1)
-        setattr(State, "print_sep", True)
-        setattr(Telem, "session", SessInfo("SessionType"))
+        telem.laps_completed = 0
+        telem.laps_remaining = 0
+        fuel.used_lap_avg = 0.0
+        fuel.used_lap_max = 0.0
+        fuel.used_lap_list = []
+        state.reset_laps = 0
+        fuel.max_pct = DrvInfo("DriverCarMaxFuelPct", 0)
+        state.print_sep = True
+        telem.session = SessInfo("SessionType")
 
 # iRacing status
 def Check_iRacing():
@@ -440,27 +451,27 @@ def Check_iRacing():
         PrintSep()
         print('iRacing Disconnected')
         print(state.sep_1)
-        setattr(State, "print_sep", True)
-        setattr(Telem, "session", 0)
+        state.print_sep = True
+        telem.session = 0
         fuel.level_full = 0.0
     elif not state.ir_connected and ir.startup() and ir.is_initialized and ir.is_connected:
         state.ir_connected = True
         PrintSep()
         print('iRacing Connected')
         print(state.sep_1)
-        setattr(State, "print_sep", True)
+        state.print_sep = True
         speech_thread = threading.Thread(target=SpeechThread, args=("fuel companion connected",))
         speech_thread.start()
 
         # Various one-time calls
         units.detect()
-        setattr(Telem, "driver_idx", ir['DriverInfo']['DriverCarIdx'])
+        telem.driver_idx = ir['DriverInfo']['DriverCarIdx']
         TrackLength = ir['WeekendInfo']['TrackLength']
         TrackLengthSpl = TrackLength.split()
-        setattr(Telem, "lap_distance", float(TrackLengthSpl[0]))
-        setattr(Fuel, "last_level", ir['FuelLevel'])
+        telem.lap_distance = float(TrackLengthSpl[0])
+        fuel.last_level = ir['FuelLevel']
         fuel.max_pct = DrvInfo("DriverCarMaxFuelPct", 0)
-        setattr(State, "count", ir['LapCompleted'] + 1)
+        state.count = ir['LapCompleted'] + 1
         
         fueling_thread = threading.Thread(target=FuelingThread)
         fueling_thread.start()
@@ -470,7 +481,7 @@ def Check_iRacing():
         print("Weekend")
         print(state.sep_2)
         print("Track: " + WkndInfo("TrackName", 0), "Car: " + DrvInfo("Drivers", "CarPath"), "Length: " + units.dist(telem.lap_distance, "km"), "Date: " + WkndOpt("Date", 0) + " " + WkndOpt("TimeOfDay", 0) + WkndOpt("TimeOfDay", 1), "Rubber: " + SessInfo("SessionTrackRubberState"), "Max Fuel: " + units.pct(fuel.max_pct), sep=', ')
-        setattr(State, "print_sep", False)
+        state.print_sep = False
         Session()
 
 # Main loop
@@ -486,9 +497,10 @@ def Loop():
     if SessionType != telem.session:
         Session()
 
-    fuel.max_pct = DrvInfo("DriverCarMaxFuelPct", 0)
+    if SessInfo("SessionType") == "Offline Testing" or SessInfo("SessionType") == "Practice":
+        if DrvInfo("DriverCarMaxFuelPct", 0) == 1:
+            fuel.max_pct = state.practice_fuelpct / 100
 
-    if telem.session == "Practice" or telem.session == "Offline Testing":
         if ir['OilTemp'] == 77.0 and state.reset_laps == 1:
             telem.laps_completed = 0
             fuel.used_lap_avg = 0.0
@@ -500,18 +512,18 @@ def Loop():
 
     # Lap completion trigger
     if ir['LapCompleted'] < state.count:
-        setattr(State, "count", ir['LapCompleted'] + 1)
+        state.count = ir['LapCompleted'] + 1
     if ir['LapCompleted'] > state.count + 1:
-        setattr(State, "count", ir['LapCompleted'] + 1)
+        state.count = ir['LapCompleted'] + 1
     elif ir['LapCompleted'] == state.count:
-        setattr(Fuel, "level", ir['FuelLevel'])
-        setattr(Fuel, "pct", ir['FuelLevelPct'])
-        setattr(State, "count", state.count + 1)
-        setattr(State, "trigger", True)
+        fuel.level = ir['FuelLevel']
+        fuel.pct = ir['FuelLevelPct']
+        state.count = state.count + 1
+        state.trigger = True
     
     # Things to do on lap complete
     if state.trigger == True and fuel.level > 0:
-        if telem.session == "Practice" or telem.session == "Offline Testing":
+        if SessInfo("SessionType") == "Offline Testing" or SessInfo("SessionType") == "Practice":
             telem.laps_completed = telem.laps_completed + 1
         else:
             telem.laps_completed = ir['LapCompleted']
@@ -520,17 +532,19 @@ def Loop():
         else:
             telem.stint_laps = telem.stint_laps + 1
 
-        # Use fake race laps if practice or testing, use time if no set laps, use race laps else
-        if telem.session == "Practice" or telem.session == "Offline Testing":
-            telem.laps_remaining = state.practice_laps - telem.laps_completed
-        elif ir['SessionLapsRemain'] > 5000 and ir['LapLastLapTime'] > 1:
-            setattr(Telem, "laps_remaining", round(ir['SessionTimeRemain'] / ir['LapLastLapTime'], 0))
+        # Estimate laps based on time remaining if session laps aren't set
+        if ir['SessionLapsRemain'] > 5000 and ir['LapLastLapTime'] > 1:
+            telem.laps_remaining = round(ir['SessionTimeRemain'] / ir['LapLastLapTime'], 0)
         elif ir['SessionLapsRemain'] > 5000 and ir['LapLastLapTime'] < 1:
-            setattr(Telem, "laps_remaining", round(ir['SessionTimeRemain'] / (telem.lap_distance / (100 / 3600)), 0))
+            telem.laps_remaining = round(ir['SessionTimeRemain'] / (telem.lap_distance / (100 / 3600)), 0)
         elif ir['SessionLapsRemain'] <= 0:
-            setattr(Telem, "laps_remaining", 1)
+            telem.laps_remaining = 1
         else:
-            setattr(Telem, "laps_remaining", ir['SessionLapsRemain'] + 1)
+            telem.laps_remaining = ir['SessionLapsRemain'] + 1
+
+        # Use mock race laps for practices
+        if SessInfo("SessionType") == "Offline Testing" or SessInfo("SessionType") == "Practice":
+            telem.laps_remaining = state.practice_laps - telem.laps_completed
 
         FuelCalc()
 
@@ -544,17 +558,17 @@ def Loop():
         # Info to print to file/terminal
         if telem.laps_completed <= ir['SessionLapsTotal']:
             if SessInfo("SessionType") == "Offline Testing" or SessInfo("SessionType") == "Practice":
-                print("Lap ", telem.laps_completed, " [Laps: ", round(fuel.laps_left, 2), " | Used: ", units.vol(fuel.used_lap, "abv"), " | Eco: ", units.econ(fuel.eco), "]", sep='')
+                print("Lap ", ir['LapCompleted'], " [Laps: ", round(fuel.laps_left, 2), " | Used: ", units.vol(fuel.used_lap, "abv"), " | Eco: ", units.econ(fuel.eco), "]", sep='')
             else:
-                print("Lap ", telem.laps_completed, " [Laps: ", round(fuel.laps_left, 2), " | Used: ", units.vol(fuel.used_lap, "abv"), " | Used Rate Req: ", units.vol(fuel.used_lap_req, "abv"), " | Eco: ", units.econ(fuel.eco), " | Eco Req: ", units.econ(fuel.eco_req), " | Max: ", units.vol(fuel.level_req_max, "abv"), " | Avg: ", units.vol(fuel.level_req_avg, "abv"), "]", sep='')
-            setattr(State, "print_sep", False)
+                print("Lap ", ir['LapCompleted'], " [Laps: ", round(fuel.laps_left, 2), " | Used: ", units.vol(fuel.used_lap, "abv"), " | Used Rate Req: ", units.vol(fuel.used_lap_req, "abv"), " | Eco: ", units.econ(fuel.eco), " | Eco Req: ", units.econ(fuel.eco_req), " | Max: ", units.vol(fuel.level_req_max, "abv"), " | Avg: ", units.vol(fuel.level_req_avg, "abv"), "]", sep='')
+            state.print_sep = False
 
         # Lap finishing actions
-        setattr(Fuel, "last_level", fuel.level)
-        setattr(State, "trigger", False)
+        fuel.last_level = fuel.level
+        state.trigger = False
     elif state.trigger == True and fuel.level <= 0:
-        setattr(Fuel, "last_level", fuel.level)
-        setattr(State, "trigger", False)
+        fuel.last_level = fuel.level
+        state.trigger = False
 
     # Pit report
 
@@ -571,7 +585,7 @@ def Loop():
     if state.surface == -1 and ir['CarIdxTrackSurface'][telem.driver_idx] != -1:
         fuel.last_pit_level = ir['FuelLevel']
 
-    setattr(State, "surface", ir['CarIdxTrackSurface'][telem.driver_idx])
+    state.surface = ir['CarIdxTrackSurface'][telem.driver_idx]
 
 Date = datetime.now()
 DateStr = Date.strftime("%Y-%m-%d_%H.%M.%S")
@@ -600,7 +614,8 @@ def GuiThread():
 
     left_layout = [[sg.Text(text = "Hotkeys:\n\nCtrl+Shift+F1: Print current pace info\nCtrl+Shift+F2: Print fuel to finish info\nCtrl+Shift+F3: Toggle using max fuel usage for auto fueling\nCtrl+Shift+F4: Toggle fuel reading\nCtrl+Shift+F5: Toggle auto fueling")],
                    [sg.Text(text = "Extra laps when auto fueling:"), sg.Spin(values=[i for i in range(0, 26)], initial_value = state.fuel_pad, key = 'FuelPad', enable_events = True)],
-                   [sg.Text(text = "Number of laps for race simulation:"), sg.Spin(values=[i for i in range(0, 999)], initial_value = state.practice_laps, key = 'PracLaps', enable_events = True)],
+                   [sg.Text(text = "Number of laps for race simulation:"), sg.Spin(values=[i for i in range(1, 1000)], initial_value = state.practice_laps, key = 'PracLaps', enable_events = True)],
+                   [sg.Text(text = "Max fuel percent for race simulation:"), sg.Spin(values=[i for i in range(1, 101)], initial_value = state.practice_fuelpct, key = 'PracFuelPct', enable_events = True)],
                    [sg.Checkbox('Toggle Fuel Reading', default = state.fuel_read, key = 'FuelRead', enable_events = True), sg.Checkbox('Toggle Auto Fueling', default = state.auto_fuel, key = 'FuelAuto', enable_events = True)],
                    [sg.Checkbox('Use Max Fuel Usage for Auto Fuel', default = state.fuel_max, key = 'FuelMax', enable_events = True)]]
 
@@ -648,39 +663,42 @@ def GuiThread():
 
         if event == "FuelRead":
             if values['FuelRead'] == 1:
-                setattr(State, "fuel_read", 1)
+                state.fuel_read = 1
                 SetRegistry()
                 #print("Fuel reading enabled")
             else:
-                setattr(State, "fuel_read", 0)
+                state.fuel_read = 0
                 SetRegistry()
                 #print("Fuel reading disabled")
         
         if event == "FuelAuto":
             if values['FuelAuto'] == 1:
-                setattr(State, "auto_fuel", 1)
+                state.auto_fuel = 1
                 SetRegistry()
                 #print("Auto fuel enabled")
             else:
-                setattr(State, "auto_fuel", 0)
+                state.auto_fuel = 0
                 SetRegistry()
                 #print("Auto fuel disabled")
 
         if event == "FuelMax":
             if values['FuelMax'] == 1:
-                setattr(State, "fuel_max", 1)
+                state.fuel_max = 1
                 SetRegistry()
                 #print("Max fueling enabled")
             else:
-                setattr(State, "fuel_max", 0)
+                state.fuel_max = 0
                 SetRegistry()
                 #print("Max fueling disabled")
 
         if event == "FuelPad":
-            setattr(State, "fuel_pad", values['FuelPad'])
+            state.fuel_pad = values['FuelPad']
             SetRegistry()
         if event == "PracLaps":
-            setattr(State, "practice_laps", values['PracLaps'])
+            state.practice_laps = values['PracLaps']
+            SetRegistry()
+        if event == "PracFuelPct":
+            state.practice_fuelpct = values['PracFuelPct']
             SetRegistry()
         time.sleep(0.1)
     os._exit(1)
