@@ -16,7 +16,7 @@ from datetime import datetime
 
 # Random variables
 class State:
-    version = "v0.0.14"
+    version = "v0.1.0"
     reg_path = 'Software\\iR Fuel Companion'
     sep_1 = "=" * 135
     sep_2 = "-" * 135
@@ -174,6 +174,7 @@ class Telem:
     session = 0
     location = 1
     stint_laps = 0
+    last_ttemp = 0.0
 
 # Open program
 def StartProgram(program):
@@ -428,11 +429,13 @@ def PrintSep():
 
 # Print session info
 def Session():
+        time.sleep(2)
         PrintSep()
         print(SessInfo("SessionType"))
         print(state.sep_2)
         print("Skies: " + Sky(), "Air: " + units.temp(ir['AirTemp']), "Surface: " + units.temp(ir['TrackTempCrew']), "Wind: " + units.wind_dir() + " @ " + units.speed(ir['WindVel']), "Humidity: " + units.pct(ir['RelativeHumidity']), "Pressure: " + units.press(ir['AirPressure']), "Density: " + units.dens(ir['AirDensity']), sep=', ')
         print(state.sep_1)
+        telem.last_ttemp = ir['TrackTempCrew']
         telem.laps_completed = 0
         telem.laps_remaining = 0
         fuel.used_lap_avg = 0.0
@@ -442,6 +445,13 @@ def Session():
         fuel.max_pct = DrvInfo("DriverCarMaxFuelPct", 0)
         state.print_sep = True
         telem.session = SessInfo("SessionType")
+
+def TrackTemp():
+        PrintSep()
+        print("Surface: " + units.temp(ir['TrackTempCrew']))
+        print(state.sep_1)
+        state.print_sep = True
+        telem.last_ttemp = ir['TrackTempCrew']
 
 # iRacing status
 def Check_iRacing():
@@ -496,6 +506,9 @@ def Loop():
         SessionType = telem.session
     if SessionType != telem.session:
         Session()
+
+    if ((ir['TrackTempCrew'] * 1.8) + 32) > ((telem.last_ttemp * 1.8) + 32) + 2 or ((ir['TrackTempCrew'] * 1.8) + 32) < ((telem.last_ttemp * 1.8) + 32) - 2:
+        TrackTemp()
 
     if SessInfo("SessionType") == "Offline Testing" or SessInfo("SessionType") == "Practice":
         if DrvInfo("DriverCarMaxFuelPct", 0) == 1:
