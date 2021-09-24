@@ -16,7 +16,7 @@ from datetime import datetime
 
 # Random variables
 class State:
-    version = "v0.1.0"
+    version = "v0.1.1"
     reg_path = 'Software\\iR Fuel Companion'
     sep_1 = "=" * 135
     sep_2 = "-" * 135
@@ -70,6 +70,11 @@ class Units:
     def pct(self, value):
         pct_result = str(round(value * 100, 2)) + "%"
         return pct_result
+
+    # Time formatting
+    def time(self, value):
+        time_result = str(round(value, 3)) + "s"
+        return time_result
 
     # Temperature
     def temp(self, value):
@@ -175,6 +180,9 @@ class Telem:
     location = 1
     stint_laps = 0
     last_ttemp = 0.0
+    flag = "0x00000000"
+    flag_list = []
+    lap_time_list = []
 
 # Open program
 def StartProgram(program):
@@ -276,7 +284,354 @@ def KeysThread():
                 speech_thread = threading.Thread(target=SpeechThread, args=("auto fuel enabled",))
                 speech_thread.start()
             time.sleep(0.75)
+        if keyboard.is_pressed('ctrl+shift+f6') == True:
+            time.sleep(0.25)
+            FuelAdd = fuel.level_req_avg + (fuel.used_lap_avg * state.fuel_pad)
+            if state.fuel_max == 1:
+                FuelAdd = fuel.level_req_max + (fuel.used_lap_max * state.fuel_pad)
+            if FuelAdd + fuel.last_level <= ir['FuelLevel']:
+                ir.pit_command(11)
+            if FuelAdd + fuel.last_level > ir['FuelLevel']:
+                ir.pit_command(2, int(round(FuelAdd, 0)))
+            time.sleep(0.75)
         time.sleep(1/60)
+
+# Return driver flag
+def Flags():
+        # Flag codes
+        # checkered        = 0x00000001
+        # white            = 0x00000002
+        # green            = 0x00000004
+        # yellow           = 0x00000008
+
+        # red              = 0x00000010
+        # blue             = 0x00000020
+        # debris           = 0x00000040
+        # crossed          = 0x00000080
+
+        # yellow_waving    = 0x00000100
+        # one_lap_to_green = 0x00000200
+        # green_held       = 0x00000400
+        # ten_to_go        = 0x00000800
+
+        # five_to_go       = 0x00001000
+        # random_waving    = 0x00002000
+        # caution          = 0x00004000
+        # caution_waving   = 0x00008000
+
+        # black            = 0x00010000
+        # disqualify       = 0x00020000
+        # servicible       = 0x00040000
+        # furled           = 0x00080000
+
+        # repair           = 0x00100000
+
+        # start_hidden     = 0x10000000
+        # start_ready      = 0x20000000
+        # start_set        = 0x40000000
+        # start_go         = 0x80000000
+
+    while True:
+        telem.flag_list = []
+
+        # First digit
+        if telem.flag[-1] == "1":
+            telem.flag_list.append("checkered")
+        elif telem.flag[-1] == "2":
+            telem.flag_list.append("white")
+        elif telem.flag[-1] == "3":
+            telem.flag_list.append("checkered")
+            telem.flag_list.append("white")
+        elif telem.flag[-1] == "4":
+            telem.flag_list.append("green")
+        elif telem.flag[-1] == "5":
+            telem.flag_list.append("checkered")
+            telem.flag_list.append("green")
+        elif telem.flag[-1] == "6":
+            telem.flag_list.append("white")
+            telem.flag_list.append("green")
+        elif telem.flag[-1] == "7":
+            telem.flag_list.append("checkered")
+            telem.flag_list.append("white")
+            telem.flag_list.append("green")
+        elif telem.flag[-1] == "8":
+            telem.flag_list.append("yellow")
+        elif telem.flag[-1] == "9":
+            telem.flag_list.append("checkered")
+            telem.flag_list.append("yellow")
+        elif telem.flag[-1] == "a":
+            telem.flag_list.append("white")
+            telem.flag_list.append("yellow")
+        elif telem.flag[-1] == "b":
+            telem.flag_list.append("checkered")
+            telem.flag_list.append("white")
+            telem.flag_list.append("yellow")
+        elif telem.flag[-1] == "c":
+            telem.flag_list.append("green")
+            telem.flag_list.append("yellow")
+        elif telem.flag[-1] == "d":
+            telem.flag_list.append("checkered")
+            telem.flag_list.append("green")
+            telem.flag_list.append("yellow")
+        elif telem.flag[-1] == "e":
+            telem.flag_list.append("white")
+            telem.flag_list.append("green")
+            telem.flag_list.append("yellow")
+        elif telem.flag[-1] == "f":
+            telem.flag_list.append("checkered")
+            telem.flag_list.append("white")
+            telem.flag_list.append("green")
+            telem.flag_list.append("yellow")
+
+        # Second digit
+        if telem.flag[-2] == "1":
+            telem.flag_list.append("red")
+        elif telem.flag[-2] == "2":
+            telem.flag_list.append("blue")
+        elif telem.flag[-2] == "3":
+            telem.flag_list.append("red")
+            telem.flag_list.append("blue")
+        elif telem.flag[-2] == "4":
+            telem.flag_list.append("debris")
+        elif telem.flag[-2] == "5":
+            telem.flag_list.append("red")
+            telem.flag_list.append("debris")
+        elif telem.flag[-2] == "6":
+            telem.flag_list.append("blue")
+            telem.flag_list.append("debris")
+        elif telem.flag[-2] == "7":
+            telem.flag_list.append("red")
+            telem.flag_list.append("blue")
+            telem.flag_list.append("debris")
+        elif telem.flag[-2] == "8":
+            telem.flag_list.append("crossed")
+        elif telem.flag[-2] == "9":
+            telem.flag_list.append("red")
+            telem.flag_list.append("crossed")
+        elif telem.flag[-2] == "a":
+            telem.flag_list.append("blue")
+            telem.flag_list.append("crossed")
+        elif telem.flag[-2] == "b":
+            telem.flag_list.append("red")
+            telem.flag_list.append("blue")
+            telem.flag_list.append("crossed")
+        elif telem.flag[-2] == "c":
+            telem.flag_list.append("debris")
+            telem.flag_list.append("crossed")
+        elif telem.flag[-2] == "d":
+            telem.flag_list.append("red")
+            telem.flag_list.append("debris")
+            telem.flag_list.append("crossed")
+        elif telem.flag[-2] == "e":
+            telem.flag_list.append("blue")
+            telem.flag_list.append("debris")
+            telem.flag_list.append("crossed")
+        elif telem.flag[-2] == "f":
+            telem.flag_list.append("red")
+            telem.flag_list.append("blue")
+            telem.flag_list.append("debris")
+            telem.flag_list.append("crossed")
+
+        # Third digit
+        if telem.flag[-3] == "1":
+            telem.flag_list.append("yellow_waving")
+        elif telem.flag[-3] == "2":
+            telem.flag_list.append("one_lap_to_green")
+        elif telem.flag[-3] == "3":
+            telem.flag_list.append("yellow_waving")
+            telem.flag_list.append("one_lap_to_green")
+        elif telem.flag[-3] == "4":
+            telem.flag_list.append("green_held")
+        elif telem.flag[-3] == "5":
+            telem.flag_list.append("yellow_waving")
+            telem.flag_list.append("green_held")
+        elif telem.flag[-3] == "6":
+            telem.flag_list.append("one_lap_to_green")
+            telem.flag_list.append("green_held")
+        elif telem.flag[-3] == "7":
+            telem.flag_list.append("yellow_waving")
+            telem.flag_list.append("one_lap_to_green")
+            telem.flag_list.append("green_held")
+        elif telem.flag[-3] == "8":
+            telem.flag_list.append("ten_to_go")
+        elif telem.flag[-3] == "9":
+            telem.flag_list.append("yellow_waving")
+            telem.flag_list.append("ten_to_go")
+        elif telem.flag[-3] == "a":
+            telem.flag_list.append("one_lap_to_green")
+            telem.flag_list.append("ten_to_go")
+        elif telem.flag[-3] == "b":
+            telem.flag_list.append("yellow_waving")
+            telem.flag_list.append("one_lap_to_green")
+            telem.flag_list.append("ten_to_go")
+        elif telem.flag[-3] == "c":
+            telem.flag_list.append("green_held")
+            telem.flag_list.append("ten_to_go")
+        elif telem.flag[-3] == "d":
+            telem.flag_list.append("yellow_waving")
+            telem.flag_list.append("green_held")
+            telem.flag_list.append("ten_to_go")
+        elif telem.flag[-3] == "e":
+            telem.flag_list.append("one_lap_to_green")
+            telem.flag_list.append("green_held")
+            telem.flag_list.append("ten_to_go")
+        elif telem.flag[-3] == "f":
+            telem.flag_list.append("yellow_waving")
+            telem.flag_list.append("one_lap_to_green")
+            telem.flag_list.append("green_held")
+            telem.flag_list.append("ten_to_go")
+
+        # Forth digit
+        if telem.flag[-4] == "1":
+            telem.flag_list.append("five_to_go")
+        elif telem.flag[-4] == "2":
+            telem.flag_list.append("random_waving")
+        elif telem.flag[-4] == "3":
+            telem.flag_list.append("five_to_go")
+            telem.flag_list.append("random_waving")
+        elif telem.flag[-4] == "4":
+            telem.flag_list.append("caution")
+        elif telem.flag[-4] == "5":
+            telem.flag_list.append("five_to_go")
+            telem.flag_list.append("caution")
+        elif telem.flag[-4] == "6":
+            telem.flag_list.append("random_waving")
+            telem.flag_list.append("caution")
+        elif telem.flag[-4] == "7":
+            telem.flag_list.append("five_to_go")
+            telem.flag_list.append("random_waving")
+            telem.flag_list.append("caution")
+        elif telem.flag[-4] == "8":
+            telem.flag_list.append("caution_waving")
+        elif telem.flag[-4] == "9":
+            telem.flag_list.append("five_to_go")
+            telem.flag_list.append("caution_waving")
+        elif telem.flag[-4] == "a":
+            telem.flag_list.append("random_waving")
+            telem.flag_list.append("caution_waving")
+        elif telem.flag[-4] == "b":
+            telem.flag_list.append("five_to_go")
+            telem.flag_list.append("random_waving")
+            telem.flag_list.append("caution_waving")
+        elif telem.flag[-4] == "c":
+            telem.flag_list.append("caution")
+            telem.flag_list.append("caution_waving")
+        elif telem.flag[-4] == "d":
+            telem.flag_list.append("five_to_go")
+            telem.flag_list.append("caution")
+            telem.flag_list.append("caution_waving")
+        elif telem.flag[-4] == "e":
+            telem.flag_list.append("random_waving")
+            telem.flag_list.append("caution")
+            telem.flag_list.append("caution_waving")
+        elif telem.flag[-4] == "f":
+            telem.flag_list.append("five_to_go")
+            telem.flag_list.append("random_waving")
+            telem.flag_list.append("caution")
+            telem.flag_list.append("caution_waving")
+
+        # Fifth digit
+        if telem.flag[-5] == "1":
+            telem.flag_list.append("black")
+        elif telem.flag[-5] == "2":
+            telem.flag_list.append("disqualify")
+        elif telem.flag[-5] == "3":
+            telem.flag_list.append("black")
+            telem.flag_list.append("disqualify")
+        elif telem.flag[-5] == "4":
+            telem.flag_list.append("servicible")
+        elif telem.flag[-5] == "5":
+            telem.flag_list.append("black")
+            telem.flag_list.append("servicible")
+        elif telem.flag[-5] == "6":
+            telem.flag_list.append("disqualify")
+            telem.flag_list.append("servicible")
+        elif telem.flag[-5] == "7":
+            telem.flag_list.append("black")
+            telem.flag_list.append("disqualify")
+            telem.flag_list.append("servicible")
+        elif telem.flag[-5] == "8":
+            telem.flag_list.append("furled")
+        elif telem.flag[-5] == "9":
+            telem.flag_list.append("black")
+            telem.flag_list.append("furled")
+        elif telem.flag[-5] == "a":
+            telem.flag_list.append("disqualify")
+            telem.flag_list.append("furled")
+        elif telem.flag[-5] == "b":
+            telem.flag_list.append("black")
+            telem.flag_list.append("disqualify")
+            telem.flag_list.append("furled")
+        elif telem.flag[-5] == "c":
+            telem.flag_list.append("servicible")
+            telem.flag_list.append("furled")
+        elif telem.flag[-5] == "d":
+            telem.flag_list.append("black")
+            telem.flag_list.append("servicible")
+            telem.flag_list.append("furled")
+        elif telem.flag[-5] == "e":
+            telem.flag_list.append("disqualify")
+            telem.flag_list.append("servicible")
+            telem.flag_list.append("furled")
+        elif telem.flag[-5] == "f":
+            telem.flag_list.append("black")
+            telem.flag_list.append("disqualify")
+            telem.flag_list.append("servicible")
+            telem.flag_list.append("furled")
+
+        # Sixth digit
+        if telem.flag[-6] == "1":
+            telem.flag_list.append("repair")
+
+        # Eighth digit
+        if telem.flag[-8] == "1":
+            telem.flag_list.append("start_hidden")
+        elif telem.flag[-8] == "2":
+            telem.flag_list.append("start_ready")
+        elif telem.flag[-8] == "3":
+            telem.flag_list.append("start_hidden")
+            telem.flag_list.append("start_ready")
+        elif telem.flag[-8] == "4":
+            telem.flag_list.append("start_set")
+        elif telem.flag[-8] == "5":
+            telem.flag_list.append("start_hidden")
+            telem.flag_list.append("start_set")
+        elif telem.flag[-8] == "6":
+            telem.flag_list.append("start_ready")
+            telem.flag_list.append("start_set")
+        elif telem.flag[-8] == "7":
+            telem.flag_list.append("start_hidden")
+            telem.flag_list.append("start_ready")
+            telem.flag_list.append("start_set")
+        elif telem.flag[-8] == "8":
+            telem.flag_list.append("start_go")
+        elif telem.flag[-8] == "9":
+            telem.flag_list.append("start_hidden")
+            telem.flag_list.append("start_go")
+        elif telem.flag[-8] == "a":
+            telem.flag_list.append("start_ready")
+            telem.flag_list.append("start_go")
+        elif telem.flag[-8] == "b":
+            telem.flag_list.append("start_hidden")
+            telem.flag_list.append("start_ready")
+            telem.flag_list.append("start_go")
+        elif telem.flag[-8] == "c":
+            telem.flag_list.append("start_set")
+            telem.flag_list.append("start_go")
+        elif telem.flag[-8] == "d":
+            telem.flag_list.append("start_hidden")
+            telem.flag_list.append("start_set")
+            telem.flag_list.append("start_go")
+        elif telem.flag[-8] == "e":
+            telem.flag_list.append("start_ready")
+            telem.flag_list.append("start_set")
+            telem.flag_list.append("start_go")
+        elif telem.flag[-8] == "f":
+            telem.flag_list.append("start_hidden")
+            telem.flag_list.append("start_ready")
+            telem.flag_list.append("start_set")
+            telem.flag_list.append("start_go")
+        time.sleep(1)
 
 # Fuel calculations
 def FuelCalc():
@@ -332,7 +687,19 @@ def FuelingThread():
     PittingChgd = True
     while True:
         while SessInfo("SessionType") == "Race" and state.auto_fuel == 1 and state.ir_connected == True:
-            if Pitting == True and PittingChgd == True:
+            if "caution" in telem.flag_list:
+                FlagChk = True
+            elif "caution_waving" in telem.flag_list:
+                FlagChk = True
+            elif "yellow" in telem.flag_list:
+                FlagChk = True
+            elif "yellow_waving" in telem.flag_list:
+                FlagChk = True
+            elif "black" in telem.flag_list:
+                FlagChk = False
+            else:
+                FlagChk = True
+            if Pitting == True and PittingChgd == True and FlagChk == True:
                 FuelAdd = fuel.level_req_avg + (fuel.used_lap_avg * state.fuel_pad)
                 if state.fuel_max == 1:
                     FuelAdd = fuel.level_req_max + (fuel.used_lap_max * state.fuel_pad)
@@ -352,6 +719,7 @@ def FuelingThread():
                 Pitting = False
             if PittingChgd == Pitting:
                 PittingChgd = True
+            FlagChk = False
             time.sleep(1/60)
         time.sleep(1/5)
 
@@ -362,11 +730,16 @@ def PitReport():
     else:
         fuel.stint_used_avg = 0
         fuel.stint_eco = 0
+    if len(telem.lap_time_list) > 0:
+        avg = 0
+        for lap in telem.lap_time_list:
+            avg = avg + lap
+        AvgTime = avg / len(telem.lap_time_list)
     ir.unfreeze_var_buffer_latest()
     PrintSep()
     print("Lap", telem.laps_completed + 1, "Pit Report")
     print(state.sep_2)
-    print("Stint: " + str(telem.stint_laps) + " laps", "Avg Used: " + units.vol(fuel.stint_used_avg, "abv"), "Avg Eco: " + units.econ(fuel.stint_eco), "Total Used: " + units.vol(fuel.stint_used, "abv"), sep=', ')
+    print("Stint: " + str(telem.stint_laps) + " laps", "Avg Time: " + units.time(AvgTime), "Avg Used: " + units.vol(fuel.stint_used_avg, "abv"), "Avg Eco: " + units.econ(fuel.stint_eco), "Total Used: " + units.vol(fuel.stint_used, "abv"), sep=', ')
     print(state.sep_1)
     print("Tire Wear")
     print(state.sep_2)
@@ -496,8 +869,8 @@ def Check_iRacing():
 
 # Main loop
 def Loop():
-    # Freeze telemetry for consistent data
-    ir.freeze_var_buffer_latest()
+# Freeze telemetry for consistent data
+    ir.freeze_var_buffer_latest() 
     
     # Session type retrieval and change detection
     if state.ir_connected == True:
@@ -506,6 +879,8 @@ def Loop():
         SessionType = telem.session
     if SessionType != telem.session:
         Session()
+
+    telem.flag = str(hex(ir['SessionFlags']))
 
     if ((ir['TrackTempCrew'] * 1.8) + 32) > ((telem.last_ttemp * 1.8) + 32) + 2 or ((ir['TrackTempCrew'] * 1.8) + 32) < ((telem.last_ttemp * 1.8) + 32) - 2:
         TrackTemp()
@@ -569,11 +944,24 @@ def Loop():
                 speech_thread.start()
 
         # Info to print to file/terminal
+        ir.unfreeze_var_buffer_latest() 
+        time.sleep(1)
+        if len(telem.lap_time_list) > 0:
+            LapListMax = max(telem.lap_time_list)
+        else:
+            LapListMax = 999
+        if ir['LapLastLapTime'] > 0 and ir['LapLastLapTime'] < (LapListMax + 5):
+            telem.lap_time_list.append(ir['LapLastLapTime'])
+
+        LapTime = units.time(ir['LapLastLapTime'])
+        if ir['LapLastLapTime'] <= 0.0:
+            LapTime = "N/A"
+
         if telem.laps_completed <= ir['SessionLapsTotal']:
             if SessInfo("SessionType") == "Offline Testing" or SessInfo("SessionType") == "Practice":
-                print("Lap ", ir['LapCompleted'], " [Laps: ", round(fuel.laps_left, 2), " | Used: ", units.vol(fuel.used_lap, "abv"), " | Eco: ", units.econ(fuel.eco), "]", sep='')
+                print("Lap ", ir['LapCompleted'], " [Time: ", LapTime, " | Laps: ", round(fuel.laps_left, 2), " | Used: ", units.vol(fuel.used_lap, "abv"), " | Eco: ", units.econ(fuel.eco), "]", sep='')
             else:
-                print("Lap ", ir['LapCompleted'], " [Laps: ", round(fuel.laps_left, 2), " | Used: ", units.vol(fuel.used_lap, "abv"), " | Used Rate Req: ", units.vol(fuel.used_lap_req, "abv"), " | Eco: ", units.econ(fuel.eco), " | Eco Req: ", units.econ(fuel.eco_req), " | Max: ", units.vol(fuel.level_req_max, "abv"), " | Avg: ", units.vol(fuel.level_req_avg, "abv"), "]", sep='')
+                print("Lap ", ir['LapCompleted'], " [Time: ", LapTime, " | Laps: ", round(fuel.laps_left, 2), " | Used: ", units.vol(fuel.used_lap, "abv"), " | Used Rate Req: ", units.vol(fuel.used_lap_req, "abv"), " | Eco: ", units.econ(fuel.eco), " | Eco Req: ", units.econ(fuel.eco_req), " | Level Req: ", units.vol(fuel.level_req, "abv"), "]", sep='')
             state.print_sep = False
 
         # Lap finishing actions
@@ -625,7 +1013,7 @@ sys.stdout=Unbuffered(sys.stdout)
 def GuiThread():
     sg.theme('LightGray1')
 
-    left_layout = [[sg.Text(text = "Hotkeys:\n\nCtrl+Shift+F1: Print current pace info\nCtrl+Shift+F2: Print fuel to finish info\nCtrl+Shift+F3: Toggle using max fuel usage for auto fueling\nCtrl+Shift+F4: Toggle fuel reading\nCtrl+Shift+F5: Toggle auto fueling")],
+    left_layout = [[sg.Text(text = "Hotkeys:\n\nCtrl+Shift+F1: Print current pace info\nCtrl+Shift+F2: Print fuel to finish info\nCtrl+Shift+F3: Toggle using max fuel usage for auto fueling\nCtrl+Shift+F4: Toggle fuel reading\nCtrl+Shift+F5: Toggle auto fueling\nCtrl+Shift+F6: Set fuel to required")],
                    [sg.Text(text = "Extra laps when auto fueling:"), sg.Spin(values=[i for i in range(0, 26)], initial_value = state.fuel_pad, key = 'FuelPad', enable_events = True)],
                    [sg.Text(text = "Number of laps for race simulation:"), sg.Spin(values=[i for i in range(1, 1000)], initial_value = state.practice_laps, key = 'PracLaps', enable_events = True)],
                    [sg.Text(text = "Max fuel percent for race simulation:"), sg.Spin(values=[i for i in range(1, 101)], initial_value = state.practice_fuelpct, key = 'PracFuelPct', enable_events = True)],
@@ -731,6 +1119,8 @@ if __name__ == '__main__':
     gui_thread = threading.Thread(target=GuiThread)
     gui_thread.start()
     time.sleep(1)
+    flags_thread = threading.Thread(target=Flags)
+    flags_thread.start()
 
     print("iR Fuel Companion " + state.version)
     print(state.sep_1)
