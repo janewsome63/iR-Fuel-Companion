@@ -756,6 +756,7 @@ def PitReport():
     state.print_sep = True
     telem.stint_laps = 0
     fuel.stint_used = 0.0
+    telem.lap_time_list = []
 
 # Shorten DriverInfo calls
 def DrvInfo(group, subgroup):
