@@ -16,7 +16,7 @@ from datetime import datetime
 
 # Random variables
 class State:
-    version = "v0.1.1"
+    version = "v0.1.3"
     reg_path = 'Software\\iR Fuel Companion'
     sep_1 = "=" * 135
     sep_2 = "-" * 135
@@ -730,6 +730,7 @@ def PitReport():
     else:
         fuel.stint_used_avg = 0
         fuel.stint_eco = 0
+    AvgTime = "N/A"
     if len(telem.lap_time_list) > 0:
         avg = 0
         for lap in telem.lap_time_list:
