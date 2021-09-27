@@ -924,9 +924,9 @@ def Loop():
 
         # Estimate laps based on time remaining if session laps aren't set
         if ir['SessionLapsRemain'] > 5000 and ir['LapLastLapTime'] > 1:
-            telem.laps_remaining = round(ir['SessionTimeRemain'] / ir['LapLastLapTime'], 0)
+            telem.laps_remaining =  math.ceil(ir['SessionTimeRemain'] / ir['LapLastLapTime'])
         elif ir['SessionLapsRemain'] > 5000 and ir['LapLastLapTime'] < 1:
-            telem.laps_remaining = round(ir['SessionTimeRemain'] / (telem.lap_distance / (100 / 3600)), 0)
+            telem.laps_remaining =  math.ceil(ir['SessionTimeRemain'] / (telem.lap_distance / (100 / 3600)))
         elif ir['SessionLapsRemain'] <= 0:
             telem.laps_remaining = 1
         else:
