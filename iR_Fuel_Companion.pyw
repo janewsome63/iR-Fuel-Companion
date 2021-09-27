@@ -735,12 +735,12 @@ def PitReport():
         avg = 0
         for lap in telem.lap_time_list:
             avg = avg + lap
-        AvgTime = avg / len(telem.lap_time_list)
+        AvgTime = units.time(avg / len(telem.lap_time_list))
     ir.unfreeze_var_buffer_latest()
     PrintSep()
-    print("Lap", telem.laps_completed + 1, "Pit Report")
+    print("Lap", ir['LapCompleted'] + 1, "Pit Report")
     print(state.sep_2)
-    print("Stint: " + str(telem.stint_laps) + " laps", "Avg Time: " + units.time(AvgTime), "Avg Used: " + units.vol(fuel.stint_used_avg, "abv"), "Avg Eco: " + units.econ(fuel.stint_eco), "Total Used: " + units.vol(fuel.stint_used, "abv"), sep=', ')
+    print("Stint: " + str(telem.stint_laps) + " laps", "Avg Time: " + AvgTime, "Avg Used: " + units.vol(fuel.stint_used_avg, "abv"), "Avg Eco: " + units.econ(fuel.stint_eco), "Total Used: " + units.vol(fuel.stint_used, "abv"), sep=', ')
     print(state.sep_1)
     print("Tire Wear")
     print(state.sep_2)
