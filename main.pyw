@@ -1,38 +1,75 @@
-#!python3
-
+import ast
+import configparser
+from datetime import datetime
+import gui
 import irsdk
-import reg
-import time
+import keybind
+import keyboard
+import math
 import os
+import pythoncom
 import subprocess
 import sys
-import keyboard
 import threading
-import pythoncom
-import PySimpleGUI as sg
+import time
 import win32com.client as wincl
-import math
-from datetime import datetime
 
-# Random variables
-class State:
-    version = "v0.1.3"
-    reg_path = 'Software\\iR Fuel Companion'
-    sep_1 = "=" * 135
-    sep_2 = "-" * 135
-    metric = True
-    ir_connected = False
-    trigger = False
+# Random variables and functions for main thread
+class state():
     count = 1
+    ir_connected = False
+    laps_completed = 0
+    metric = True
     print_sep = True
-    fuel_read = 1
-    auto_fuel = 1
-    fuel_max = 0
-    fuel_pad = 2
-    practice_laps = 0
-    practice_fuelpct = 100
+    reg_path = 'Software\\iR Fuel Companion'
     reset_laps = 0
+    sep_1 = "=" * 127
+    sep_2 = "-" * 127
+    spectator = False
+    spotter = False
     surface = -1
+    trigger = False
+    version = "v0.2.0"
+
+# Fuel variables
+class fuel:
+    eco = 0.0
+    eco_req = 0.0
+    laps_left = 0.0
+    last_level = 0.0
+    last_pit_level = 0.0
+    level = 0.0
+    level_full = 0.0
+    level_req = 0.0
+    level_req_avg = 0.0
+    level_req_max = 0.0
+    max_pct = 0.0
+    pct = 0.0
+    stint_eco = 0.0
+    stint_used = 0.0
+    stint_used_avg = 0.0
+    stops = 0
+    stops_avg = 0
+    stops_max = 0
+    used_lap = 0.0
+    used_lap_avg = 0.0
+    used_lap_max = 0.0
+    used_lap_list = []
+    used_lap_req = 0.0
+
+# Other iR telemetry variables
+class telem:
+    driver_idx = 0
+    flag = "0x00000000"
+    flag_list = []
+    lap_distance = 0
+    lap_time_list = []
+    laps_completed = 0
+    laps_remaining = 0
+    last_ttemp = 0.0
+    location = 1
+    session = 0
+    stint_laps = 0
 
 # Variables and functions for units and conversion
 # For ref: l * 0.264172 = gal | km * 0.621371 = mi | m * 0.000621371 = mi | (c * 1.8) + 32 = f | kph * 0.6213711922 = mph | rad * 57.295779513 = deg | m/s * 2.2369362920544025 = mph | Hg * 3.38639 = kPa | kg/m^3 * 0.062427960576145 = lb/ft^3 | km/l * 2.352145833 = mpg
@@ -144,157 +181,165 @@ class Units:
             econ_result = str(round(value * 2.352145833, 2)) + "mpg"
         return econ_result
 
-# Fuel variables
-class Fuel:
-    level = 0.0
-    pct = 0.0
-    max_pct = 0.0
-    level_full = 0.0
-    last_level = 0.0
-    used_lap = 0.0
-    used_lap_avg = 0.0
-    used_lap_max = 0.0
-    used_lap_list = []
-    used_lap_req = 0.0
-    laps_left = 0.0
-    eco = 0.0
-    eco_req = 0.0
-    level_req = 0.0
-    level_req_max = 0.0
-    level_req_avg = 0.0
-    stint_used = 0.0
-    stint_used_avg = 0.0
-    stint_eco = 0.0
-    last_pit_level = 0.0
-    stops = 0
-    stops_avg = 0
-    stops_max = 0
+# Changes keybinds and updates GUI
+class controls():
+    def set(key, name, event):
+        setattr(gui.binds, name, "<-Recording->")
+        if keybind.vars.button == "esc":
+            #setattr(gui.binds, name, "Bind")
+            setattr(gui.binds, key, "")
+            gui.event(event, "")
+        elif keybind.vars.button != "None":
+            setattr(gui.binds, key, keybind.vars.button)
+            controls.name(key, name)
+            gui.event(event, "")
 
-# Other iR telemetry variables
-class Telem:
-    laps_completed = 0
-    laps_remaining = 0
-    lap_distance = 0
-    driver_idx = 0
-    session = 0
-    location = 1
-    stint_laps = 0
-    last_ttemp = 0.0
-    flag = "0x00000000"
-    flag_list = []
-    lap_time_list = []
+    def name(key, name):
+        button = getattr(gui.binds, key)
+        if not isinstance(button, dict):
+            if button == "":
+                setattr(gui.binds, name, "Bind")
+            else:
+                setattr(gui.binds, name, button)
+#        elif 'value' in button:
+#            setattr(gui.binds, name, "Joy " + str(button['instance_id']) + " Hat " + str(button['value']))
+#        else:
+#            setattr(gui.binds, name, "Joy " + str(button['instance_id']) + " Button " + str(button['button']))
 
-# Open program
-def StartProgram(program):
-    #SW_HIDE = 0
-    #SW_MINIMIZE = 6
-    si = subprocess.STARTUPINFO()
-    si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-    #si.wShowWindow = SW_HIDE
-    #si.wShowWindow = SW_MINIMIZE
-    subprocess.Popen(program, startupinfo=si)
+    def main():
+        while True:
+            # Listening
+            if gui.binds.key_currentpace == keybind.vars.button:
+                time.sleep(0.50)
+                ir.chat_command(1)
+                time.sleep(0.1)
+                keyboard.write("## Current pace - " + str(round(fuel.laps_left, 2)) + " laps, " + units.vol(fuel.used_lap, "abv") + ", " + units.econ(fuel.eco) + ", " + units.vol(fuel.level_req, "abv") + "(" + str(fuel.stops) + ") extra ##")
+                time.sleep(0.1)
+                keyboard.send('enter')
+                time.sleep(0.1)
+                ir.chat_command(3)
+            if gui.binds.key_tofinish == keybind.vars.button:
+                time.sleep(0.25)
+                ir.chat_command(1)
+                time.sleep(0.05)
+                keyboard.write("## To finish - " + str(telem.laps_remaining) + " laps, " + units.vol(fuel.used_lap_req, "abv") + ", " + units.econ(fuel.eco_req) + ", " + units.vol(fuel.level_req_avg, "abv") + "(" + str(fuel.stops_avg) + ") avg, " + units.vol(fuel.level_req_max, "abv") + "(" + str(fuel.stops_max) + ") max ##")
+                time.sleep(0.05)
+                keyboard.send('enter')
+                time.sleep(0.05)
+                ir.chat_command(3)
+                time.sleep(0.75)
+            if gui.binds.key_setrequired == keybind.vars.button:
+                time.sleep(0.25)
+                FuelAdd = fuel.level_req_avg + (fuel.used_lap_avg * gui.vars.fuel_pad)
+                if gui.vars.fuel_max == 1:
+                    FuelAdd = fuel.level_req_max + (fuel.used_lap_max * gui.vars.fuel_pad)
+                if FuelAdd + fuel.last_level <= ir['FuelLevel']:
+                    ir.pit_command(11)
+                if FuelAdd + fuel.last_level > ir['FuelLevel']:
+                    ir.pit_command(2, int(round(FuelAdd, 0)))
+                time.sleep(0.75)
+            if gui.binds.key_fuelread == keybind.vars.button:
+                time.sleep(0.25)
+                if gui.vars.fuel_read == True:
+                    gui.event('-FuelRead-', 0)
+                    speech_thread = threading.Thread(target=SpeechThread, args=("fuel reading disabled",))
+                    speech_thread.start()
+                elif gui.vars.fuel_read == False:
+                    gui.event('-FuelRead-', 1)
+                    speech_thread = threading.Thread(target=SpeechThread, args=("fuel reading enabled",))
+                    speech_thread.start()
+                time.sleep(0.75)
+            if gui.binds.key_maxusage == keybind.vars.button:
+                time.sleep(0.25)
+                if gui.vars.fuel_max == True:
+                    gui.event('-FuelMax-', 0)
+                    speech_thread = threading.Thread(target=SpeechThread, args=("using average fuel usage for auto fuel",))
+                    speech_thread.start()
+                elif gui.vars.fuel_max == False:
+                    gui.event('-FuelMax-', 1)
+                    speech_thread = threading.Thread(target=SpeechThread, args=("using max fuel usage for auto fuel",))
+                    speech_thread.start()
+                time.sleep(0.75)
+            if gui.binds.key_autofuel == keybind.vars.button:
+                time.sleep(0.25)
+                if gui.vars.auto_fuel == True:
+                    gui.event('-FuelAuto-', 0)
+                    speech_thread = threading.Thread(target=SpeechThread, args=("auto fuel disabled",))
+                    speech_thread.start()
+                elif gui.vars.auto_fuel == False:
+                    gui.event('-FuelAuto-', 1)
+                    speech_thread = threading.Thread(target=SpeechThread, args=("auto fuel enabled",))
+                    speech_thread.start()
+                time.sleep(0.75)
 
-def GetRegistry():
-    if reg.get_reg(state.reg_path, 'Read'):
-        state.fuel_read = reg.get_reg(state.reg_path, 'Read')
-    if reg.get_reg(state.reg_path, 'Auto'):
-        state.auto_fuel = reg.get_reg(state.reg_path, 'Auto')
-    if reg.get_reg(state.reg_path, 'Max'):
-        state.fuel_max = reg.get_reg(state.reg_path, 'Max')
-    if reg.get_reg(state.reg_path, 'Pad'):
-        state.fuel_pad = reg.get_reg(state.reg_path, 'Pad')
-    if reg.get_reg(state.reg_path, 'Laps'):
-        state.practice_laps = reg.get_reg(state.reg_path, 'Laps')
-    if reg.get_reg(state.reg_path, 'Pct'):
-        state.practice_fuelpct = reg.get_reg(state.reg_path, 'Pct')
-    SetRegistry()
+            # Binding
+            if gui.binds.record_key_currentpace == True:
+                controls.set('key_currentpace', 'key_currentpace_name', '-BindCurrentPace-')
+            elif gui.binds.record_key_tofinish == True:
+                controls.set('key_tofinish', 'key_tofinish_name', '-BindToFinish-')
+            elif gui.binds.record_key_setrequired == True:
+                controls.set('key_setrequired', 'key_setrequired_name', '-BindSetRequired-')
+            elif gui.binds.record_key_fuelread == True:
+                controls.set('key_fuelread', 'key_fuelread_name', '-BindFuelRead-') 
+            elif gui.binds.record_key_maxusage == True:
+                controls.set('key_maxusage', 'key_maxusage_name', '-BindMaxUsage-')
+            elif gui.binds.record_key_autofuel == True:
+                controls.set('key_autofuel', 'key_autofuel_name', '-BindAutoFuel-')
+            time.sleep(1/20)
 
-def SetRegistry():
-    reg.set_reg(state.reg_path, 'Read', state.fuel_read)
-    reg.set_reg(state.reg_path, 'Auto', state.auto_fuel)
-    reg.set_reg(state.reg_path, 'Max', state.fuel_max)
-    reg.set_reg(state.reg_path, 'Pad', state.fuel_pad)
-    reg.set_reg(state.reg_path, 'Laps', state.practice_laps)
-    reg.set_reg(state.reg_path, 'Pct', state.practice_fuelpct)
+config = configparser.ConfigParser()
+
+def SetConfig():
+    config['Fueling'] = {'auto': gui.vars.auto_fuel, 'use_max': gui.vars.fuel_max, 'extra': gui.vars.fuel_pad}
+    config['Speech'] = {'fuel_updates': gui.vars.fuel_read}
+    config['Practice'] = {'laps': gui.vars.practice_laps, 'fuel_percent': gui.vars.practice_fuelpct}
+    config['Controls'] = {'current_pace': gui.binds.key_currentpace, 'to_finish': gui.binds.key_tofinish, 'set_required': gui.binds.key_setrequired, 'fuel_updates_toggle': gui.binds.key_fuelread, 'max_usage_toggle': gui.binds.key_maxusage, 'auto_fuel_toggle': gui.binds.key_autofuel}
+    with open('settings.ini', 'w') as configfile:
+        config.write(configfile)
+
+def ReadConfig():
+    config.read('settings.ini')
+    gui.vars.auto_fuel = ast.literal_eval(config['Fueling']['auto'])
+    gui.vars.fuel_max = ast.literal_eval(config['Fueling']['use_max'])
+    gui.vars.fuel_pad = ast.literal_eval(config['Fueling']['extra'])
+    gui.vars.fuel_read = ast.literal_eval(config['Speech']['fuel_updates'])
+    gui.vars.practice_laps = ast.literal_eval(config['Practice']['laps'])
+    gui.vars.practice_fuelpct = ast.literal_eval(config['Practice']['fuel_percent'])
+    if "{" in config['Controls']['current_pace']:
+        gui.binds.key_currentpace = ast.literal_eval(config['Controls']['current_pace'])
+    else:
+        gui.binds.key_currentpace = config['Controls']['current_pace']
+    controls.name('key_currentpace', 'key_currentpace_name')
+    if "{" in config['Controls']['to_finish']:
+        gui.binds.key_tofinish = ast.literal_eval(config['Controls']['to_finish'])
+    else:
+        gui.binds.key_tofinish = config['Controls']['to_finish']
+    controls.name('key_tofinish', 'key_tofinish_name')
+    if "{" in config['Controls']['set_required']:
+        gui.binds.key_setrequired = ast.literal_eval(config['Controls']['set_required'])
+    else:
+        gui.binds.key_setrequired = config['Controls']['set_required']
+    controls.name('key_setrequired', 'key_setrequired_name')
+    if "{" in config['Controls']['fuel_updates_toggle']:
+        gui.binds.key_fuelread = ast.literal_eval(config['Controls']['fuel_updates_toggle'])
+    else:
+        gui.binds.key_fuelread = config['Controls']['fuel_updates_toggle']
+    controls.name('key_fuelread', 'key_fuelread_name')
+    if "{" in config['Controls']['max_usage_toggle']:
+        gui.binds.key_maxusage = ast.literal_eval(config['Controls']['max_usage_toggle'])
+    else:
+        gui.binds.key_maxusage = config['Controls']['max_usage_toggle']
+    controls.name('key_maxusage', 'key_maxusage_name')
+    if "{" in config['Controls']['auto_fuel_toggle']:
+        gui.binds.key_autofuel = ast.literal_eval(config['Controls']['auto_fuel_toggle'])
+    else:
+        gui.binds.key_autofuel = config['Controls']['auto_fuel_toggle']
+    controls.name('key_autofuel', 'key_autofuel_name')
 
 def SpeechThread(speech):
     pythoncom.CoInitialize()
     tts = wincl.Dispatch("SAPI.SpVoice")
     tts.Speak(speech)
-
-# Hotkeys for various text/toggles
-def KeysThread():
-    while True:
-        if keyboard.is_pressed('ctrl+shift+f1') == True:
-            time.sleep(0.25)
-            ir.chat_command(1)
-            time.sleep(0.05)
-            keyboard.write("## Current pace - " + str(round(fuel.laps_left, 2)) + " laps, " + units.vol(fuel.used_lap, "abv") + ", " + units.econ(fuel.eco) + ", " + units.vol(fuel.level_req, "abv") + "(" + str(fuel.stops) + ") extra ##")
-            time.sleep(0.05)
-            keyboard.send('enter')
-            time.sleep(0.05)
-            ir.chat_command(3)
-            time.sleep(0.75)
-        if keyboard.is_pressed('ctrl+shift+f2') == True:
-            time.sleep(0.25)
-            ir.chat_command(1)
-            time.sleep(0.05)
-            keyboard.write("## To finish - " + str(telem.laps_remaining) + " laps, " + units.vol(fuel.used_lap_req, "abv") + ", " + units.econ(fuel.eco_req) + ", " + units.vol(fuel.level_req_avg, "abv") + "(" + str(fuel.stops_avg) + ") avg, " + units.vol(fuel.level_req_max, "abv") + "(" + str(fuel.stops_max) + ") max ##")
-            time.sleep(0.05)
-            keyboard.send('enter')
-            time.sleep(0.05)
-            ir.chat_command(3)
-            time.sleep(0.75)
-        if keyboard.is_pressed('ctrl+shift+f3') == True:
-            time.sleep(0.25)
-            if state.fuel_max == 1:
-                state.fuel_max = 0
-                SetRegistry()
-                speech_thread = threading.Thread(target=SpeechThread, args=("using average fuel usage for auto fuel",))
-                speech_thread.start()
-            elif state.fuel_max == 0:
-                state.fuel_max = 1
-                SetRegistry()
-                speech_thread = threading.Thread(target=SpeechThread, args=("using max fuel usage for auto fuel",))
-                speech_thread.start()
-            time.sleep(0.75)
-        if keyboard.is_pressed('ctrl+shift+f4') == True:
-            time.sleep(0.25)
-            if state.fuel_read == 1:
-                state.fuel_read = 0
-                SetRegistry()
-                speech_thread = threading.Thread(target=SpeechThread, args=("fuel reading disabled",))
-                speech_thread.start()
-            elif state.fuel_read == 0:
-                state.fuel_read =  1
-                SetRegistry()
-                speech_thread = threading.Thread(target=SpeechThread, args=("fuel reading enabled",))
-                speech_thread.start()
-            time.sleep(0.75)
-        if keyboard.is_pressed('ctrl+shift+f5') == True:
-            time.sleep(0.25)
-            if state.auto_fuel == 1:
-                state.auto_fuel = 0
-                SetRegistry()
-                speech_thread = threading.Thread(target=SpeechThread, args=("auto fuel disabled",))
-                speech_thread.start()
-            elif state.auto_fuel == 0:
-                state.auto_fuel =  1
-                SetRegistry()
-                speech_thread = threading.Thread(target=SpeechThread, args=("auto fuel enabled",))
-                speech_thread.start()
-            time.sleep(0.75)
-        if keyboard.is_pressed('ctrl+shift+f6') == True:
-            time.sleep(0.25)
-            FuelAdd = fuel.level_req_avg + (fuel.used_lap_avg * state.fuel_pad)
-            if state.fuel_max == 1:
-                FuelAdd = fuel.level_req_max + (fuel.used_lap_max * state.fuel_pad)
-            if FuelAdd + fuel.last_level <= ir['FuelLevel']:
-                ir.pit_command(11)
-            if FuelAdd + fuel.last_level > ir['FuelLevel']:
-                ir.pit_command(2, int(round(FuelAdd, 0)))
-            time.sleep(0.75)
-        time.sleep(1/60)
 
 # Return driver flag
 def Flags():
@@ -633,10 +678,14 @@ def Flags():
             telem.flag_list.append("start_go")
         time.sleep(1)
 
+def FuelCalcInit():
+    fuel.level = ir['FuelLevel']
+    fuel.level_full = DrvInfo("DriverCarFuelMaxLtr", 0)
+    fuel.pct = ir['FuelLevelPct']
+    fuel.max_pct = DrvInfo("DriverCarMaxFuelPct", 0)
+
 # Fuel calculations
 def FuelCalc():
-        if fuel.level_full == 0.0:
-            fuel.level_full = fuel.level / fuel.pct
         if telem.laps_remaining > 0:
             fuel.used_lap_req = fuel.level / telem.laps_remaining
         else:
@@ -683,10 +732,11 @@ def FuelCalc():
             fuel.stops_max = 0
 
 def FuelingThread():
+    time.sleep(5)
     Pitting = True
     PittingChgd = True
-    while True:
-        while SessInfo("SessionType") == "Race" and state.auto_fuel == 1 and state.ir_connected == True:
+    while state.ir_connected == True:
+        while state.spectator == False and SessInfo("SessionType") == "Race" and gui.vars.auto_fuel == True:
             if "caution" in telem.flag_list:
                 FlagChk = True
             elif "caution_waving" in telem.flag_list:
@@ -699,10 +749,12 @@ def FuelingThread():
                 FlagChk = False
             else:
                 FlagChk = True
-            if Pitting == True and PittingChgd == True and FlagChk == True:
-                FuelAdd = fuel.level_req_avg + (fuel.used_lap_avg * state.fuel_pad)
-                if state.fuel_max == 1:
-                    FuelAdd = fuel.level_req_max + (fuel.used_lap_max * state.fuel_pad)
+            if Pitting == True and PittingChgd == True and FlagChk == True and ir['OilTemp'] != 77.0:
+                FuelAdd = fuel.level_req_avg + (fuel.used_lap_avg * gui.vars.fuel_pad)
+                if gui.vars.fuel_max == True:
+                    FuelAdd = fuel.level_req_max + (fuel.used_lap_max * gui.vars.fuel_pad)
+                if len(fuel.used_lap_list) < 1:
+                    FuelAdd = fuel.level_full
                 if FuelAdd + fuel.last_level <= ir['FuelLevel']:
                     ir.pit_command(11)
                 if FuelAdd + fuel.last_level > ir['FuelLevel']:
@@ -759,12 +811,32 @@ def PitReport():
     fuel.stint_used = 0.0
     telem.lap_time_list = []
 
+# The SDK doesn't always work for idx so this is needed, plus spotter and spectator detection
+def IdxCheck():
+    UID = DrvInfo("DriverUserID", 0)
+    for idx in range(64, -2, -1):
+        try:
+            CID = ir['DriverInfo']['Drivers'][idx]['UserID']
+            if CID == UID:
+                telem.driver_idx = idx
+                if DrvInfo("Drivers", "IsSpectator") == 1:
+                    state.spectator = True
+                break
+            elif idx == -1:
+                telem.driver_idx = DrvInfo("DriverCarIdx", 0)
+                state.spotter = True
+        except:
+            pass
+
 # Shorten DriverInfo calls
 def DrvInfo(group, subgroup):
     if subgroup == 0:
         return ir['DriverInfo'][group]
     else:
         return ir['DriverInfo'][group][telem.driver_idx][subgroup]
+        #except Exception as ex:
+        #    CamIdx = ir['CamCarIdx']
+        #    return ir['DriverInfo'][group][CamIdx][subgroup]
 
 # Shorten WeekendInfo calls (and also split string)
 def WkndInfo(group, n):
@@ -804,7 +876,6 @@ def PrintSep():
 
 # Print session info
 def Session():
-        time.sleep(2)
         PrintSep()
         print(SessInfo("SessionType"))
         print(state.sep_2)
@@ -838,28 +909,33 @@ def Check_iRacing():
         print(state.sep_1)
         state.print_sep = True
         telem.session = 0
-        fuel.level_full = 0.0
+        state.spectator = False
+        state.spotter = False
     elif not state.ir_connected and ir.startup() and ir.is_initialized and ir.is_connected:
         state.ir_connected = True
+        
         PrintSep()
         print('iRacing Connected')
         print(state.sep_1)
         state.print_sep = True
         speech_thread = threading.Thread(target=SpeechThread, args=("fuel companion connected",))
         speech_thread.start()
+        time.sleep(3)
 
         # Various one-time calls
         units.detect()
-        telem.driver_idx = ir['DriverInfo']['DriverCarIdx']
+        IdxCheck()
         TrackLength = ir['WeekendInfo']['TrackLength']
         TrackLengthSpl = TrackLength.split()
         telem.lap_distance = float(TrackLengthSpl[0])
+        fuel.used_lap_list = []
         fuel.last_level = ir['FuelLevel']
-        fuel.max_pct = DrvInfo("DriverCarMaxFuelPct", 0)
         state.count = ir['LapCompleted'] + 1
         
         fueling_thread = threading.Thread(target=FuelingThread)
         fueling_thread.start()
+
+        FuelCalcInit()
 
         # Printing session info
         PrintSep()
@@ -869,8 +945,8 @@ def Check_iRacing():
         state.print_sep = False
         Session()
 
-# Main loop
-def Loop():
+# Main loop (run in thread because of GUI weirdness)
+def main():
 # Freeze telemetry for consistent data
     ir.freeze_var_buffer_latest() 
     
@@ -889,7 +965,7 @@ def Loop():
 
     if SessInfo("SessionType") == "Offline Testing" or SessInfo("SessionType") == "Practice":
         if DrvInfo("DriverCarMaxFuelPct", 0) == 1:
-            fuel.max_pct = state.practice_fuelpct / 100
+            fuel.max_pct = gui.vars.practice_fuelpct / 100
 
         if ir['OilTemp'] == 77.0 and state.reset_laps == 1:
             telem.laps_completed = 0
@@ -934,14 +1010,14 @@ def Loop():
 
         # Use mock race laps for practices
         if SessInfo("SessionType") == "Offline Testing" or SessInfo("SessionType") == "Practice":
-            telem.laps_remaining = state.practice_laps - telem.laps_completed
+            telem.laps_remaining = gui.vars.practice_laps - telem.laps_completed
 
         FuelCalc()
 
         # Things to do if not under caution or in pit
         if ir['CarIdxPaceLine'][telem.driver_idx] == -1 and ir['CarIdxTrackSurface'][telem.driver_idx] == 3 and ir['SessionState'] == 4 and telem.stint_laps > 1:
             # TTS callouts
-            if state.fuel_read == 1 and SessionType != "Lone Qualify":
+            if gui.vars.fuel_read == True and SessionType != "Lone Qualify":
                 speech_thread = threading.Thread(target=SpeechThread, args=(str(round(fuel.laps_left, 2)) + " laps, " + units.vol(fuel.used_lap, "full"),))
                 speech_thread.start()
 
@@ -990,6 +1066,24 @@ def Loop():
 
     state.surface = ir['CarIdxTrackSurface'][telem.driver_idx]
 
+def init():
+    time.sleep(1)
+    print("iR Fuel Companion " + state.version)
+    print(state.sep_1)
+
+    try:
+        # Check connection and start (or not) loop
+        while True:
+            Check_iRacing()
+            if state.ir_connected:
+                main()
+            te.flush()
+            SetConfig()
+            # Data read delay (min 1/60)
+            time.sleep(1 / 15)
+    except KeyboardInterrupt:
+        pass
+
 Date = datetime.now()
 DateStr = Date.strftime("%Y-%m-%d_%H.%M.%S")
 
@@ -1012,129 +1106,21 @@ class Unbuffered:
 
 sys.stdout=Unbuffered(sys.stdout)
 
-def GuiThread():
-    sg.theme('LightGray1')
-
-    left_layout = [[sg.Text(text = "Hotkeys:\n\nCtrl+Shift+F1: Print current pace info\nCtrl+Shift+F2: Print fuel to finish info\nCtrl+Shift+F3: Toggle using max fuel usage for auto fueling\nCtrl+Shift+F4: Toggle fuel reading\nCtrl+Shift+F5: Toggle auto fueling\nCtrl+Shift+F6: Set fuel to required")],
-                   [sg.Text(text = "Extra laps when auto fueling:"), sg.Spin(values=[i for i in range(0, 26)], initial_value = state.fuel_pad, key = 'FuelPad', enable_events = True)],
-                   [sg.Text(text = "Number of laps for race simulation:"), sg.Spin(values=[i for i in range(1, 1000)], initial_value = state.practice_laps, key = 'PracLaps', enable_events = True)],
-                   [sg.Text(text = "Max fuel percent for race simulation:"), sg.Spin(values=[i for i in range(1, 101)], initial_value = state.practice_fuelpct, key = 'PracFuelPct', enable_events = True)],
-                   [sg.Checkbox('Toggle Fuel Reading', default = state.fuel_read, key = 'FuelRead', enable_events = True), sg.Checkbox('Toggle Auto Fueling', default = state.auto_fuel, key = 'FuelAuto', enable_events = True)],
-                   [sg.Checkbox('Use Max Fuel Usage for Auto Fuel', default = state.fuel_max, key = 'FuelMax', enable_events = True)]]
-
-    right_layout = [[sg.Multiline(autoscroll = True, reroute_stdout = True, echo_stdout_stderr = True, enter_submits = False, size = (135, 26), pad = (5,5), font = ('Fixedsys'))]]
-
-    layout = [[sg.Column(left_layout, justification = 'left'), sg.VerticalSeparator(), sg.Column(right_layout)]]
-
-    window = sg.Window('iR Fuel Companion ' + state.version, icon='icon.ico').Layout(layout)
-
-    def CheckUpdate():
-        time.sleep(1)
-        FuelReadPrev = 0
-        AutoFuelPrev = 0
-        FuelMaxPrev = 0
-        while True:
-            if state.fuel_read != FuelReadPrev:
-                if state.fuel_read == 1:
-                    window['FuelRead'].update(1)
-                if state.fuel_read == 0:
-                    window['FuelRead'].update(0)
-                FuelReadPrev = state.fuel_read
-
-            if state.auto_fuel != AutoFuelPrev:
-                if state.auto_fuel == 1:
-                    window['FuelAuto'].update(1)
-                if state.auto_fuel == 0:
-                    window['FuelAuto'].update(0)
-                AutoFuelPrev = state.auto_fuel
-
-            if state.fuel_max != FuelMaxPrev:
-                if state.fuel_max == 1:
-                    window['FuelMax'].update(1)
-                if state.fuel_max == 0:
-                    window['FuelMax'].update(0)
-                FuelMaxPrev = state.fuel_max
-            time.sleep(0.1)
-
-    cb_thread = threading.Thread(target=CheckUpdate)
-    cb_thread.start()
-
-    while True:
-        event, values = window.Read()
-        if event == "OK" or event == sg.WIN_CLOSED:
-            break
-
-        if event == "FuelRead":
-            if values['FuelRead'] == 1:
-                state.fuel_read = 1
-                SetRegistry()
-                #print("Fuel reading enabled")
-            else:
-                state.fuel_read = 0
-                SetRegistry()
-                #print("Fuel reading disabled")
-        
-        if event == "FuelAuto":
-            if values['FuelAuto'] == 1:
-                state.auto_fuel = 1
-                SetRegistry()
-                #print("Auto fuel enabled")
-            else:
-                state.auto_fuel = 0
-                SetRegistry()
-                #print("Auto fuel disabled")
-
-        if event == "FuelMax":
-            if values['FuelMax'] == 1:
-                state.fuel_max = 1
-                SetRegistry()
-                #print("Max fueling enabled")
-            else:
-                state.fuel_max = 0
-                SetRegistry()
-                #print("Max fueling disabled")
-
-        if event == "FuelPad":
-            state.fuel_pad = values['FuelPad']
-            SetRegistry()
-        if event == "PracLaps":
-            state.practice_laps = values['PracLaps']
-            SetRegistry()
-        if event == "PracFuelPct":
-            state.practice_fuelpct = values['PracFuelPct']
-            SetRegistry()
-        time.sleep(0.1)
-    os._exit(1)
-    window.close()
-
 if __name__ == '__main__':
     # Initializing ir and State
     ir = irsdk.IRSDK()
-    state = State()
     units = Units()
-    fuel = Fuel()
-    telem = Telem()
-    GetRegistry()
+    if not os.path.exists('settings.ini'):
+        SetConfig()
+    ReadConfig()
     tts = wincl.Dispatch("SAPI.SpVoice")
-    keys_thread = threading.Thread(target=KeysThread)
-    keys_thread.start()
-    gui_thread = threading.Thread(target=GuiThread)
-    gui_thread.start()
-    time.sleep(1)
-    flags_thread = threading.Thread(target=Flags)
-    flags_thread.start()
+#    threading.Thread(target=keybind.gamepad, daemon=True).start()
+    threading.Thread(target=keybind.keys, daemon=True).start()
+    threading.Thread(target=controls.main, daemon=True).start()
+    threading.Thread(target=Flags, daemon=True).start()
+    threading.Thread(target=init, daemon=True).start()
 
-    print("iR Fuel Companion " + state.version)
-    print(state.sep_1)
+    gui.main(state.version)
 
-    try:
-        # Check connection and start (or not) loop
-        while True:
-            Check_iRacing()
-            if state.ir_connected:
-                Loop()
-            te.flush()
-            # Data read delay (min 1/60)
-            time.sleep(1 / 15)
-    except KeyboardInterrupt:
-        pass
+    SetConfig()
+    os._exit(1)
