@@ -736,7 +736,7 @@ def FuelingThread():
     Pitting = True
     PittingChgd = True
     while state.ir_connected == True:
-        while state.spectator == False and SessInfo("SessionType") == "Race" and gui.vars.auto_fuel == True:
+        while state.spectator == False and state.spotter == False and SessInfo("SessionType") == "Race" and gui.vars.auto_fuel == True:
             if "caution" in telem.flag_list:
                 FlagChk = True
             elif "caution_waving" in telem.flag_list:

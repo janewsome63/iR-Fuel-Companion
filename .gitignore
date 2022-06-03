@@ -367,3 +367,5 @@ FodyWeavers.xsd
 /icon.ico
 /example.py
 /joystickapi.py
+/old
+/settings.ini
