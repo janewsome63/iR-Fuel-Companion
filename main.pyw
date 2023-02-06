@@ -447,10 +447,10 @@ def read_config():
     if config.has_option('Controls', 'set_required'):
         gui.Binds.keys["set_required"] = config.get('Controls', 'set_required')
         controls_name('set_required')
-    if config.has_option('Controls', 'tts_fuel_toggle'):
+    if config.has_option('Controls', 'tts_fuel'):
         gui.Binds.keys["tts_fuel"] = config.get('Controls', 'tts_fuel')
         controls_name('tts_fuel')
-    if config.has_option('Controls', 'txt_fuel_toggle'):
+    if config.has_option('Controls', 'txt_fuel'):
         gui.Binds.keys["txt_fuel"] = config.get('Controls', 'txt_fuel')
         controls_name('txt_fuel')
     if config.has_option('Controls', 'temp_updates'):
@@ -845,57 +845,61 @@ def track_temp():
 
 # iRacing status
 def check_iracing():
-    if State.ir_connected and not (ir.is_initialized and ir.is_connected):
-        State.ir_connected = False
-        ir.shutdown()
-        separator()
-        print('iRacing Disconnected')
-        print(State.sep_1)
-        State.print_sep = True
-        Telem.session = 0
-        State.spectator = False
-        State.spotter = False
-    elif not State.ir_connected and ir.startup() and ir.is_initialized and ir.is_connected:
-        State.ir_connected = True
+    try:
+        if State.ir_connected and not (ir.is_initialized and ir.is_connected):
+            State.ir_connected = False
+            ir.shutdown()
+            separator()
+            print('iRacing Disconnected')
+            print(State.sep_1)
+            State.print_sep = True
+            Telem.session = 0
+            State.spectator = False
+            State.spotter = False
+        elif not State.ir_connected and ir.startup() and ir.is_initialized and ir.is_connected:
+            State.ir_connected = True
 
-        separator()
-        print('iRacing Connected')
-        print(State.sep_1)
-        State.print_sep = True
-        speech = threading.Thread(target=speech_thread, args=("Fuel companion connected",))
-        speech.start()
-        time.sleep(3)
+            separator()
+            print('iRacing Connected')
+            print(State.sep_1)
+            State.print_sep = True
+            speech = threading.Thread(target=speech_thread, args=("Fuel companion connected",))
+            speech.start()
+            time.sleep(3)
 
-        # Various one-time calls
-        detect_units()
-        idx_check()
-        track_length = ir['WeekendInfo']['TrackLength']
-        track_length_spl = track_length.split()
-        Telem.lap_distance = float(track_length_spl[0])
-        Fuel.used_lap_list = []
-        Fuel.last_level = ir['FuelLevel']
-        State.count = ir['LapCompleted'] + 1
+            # Various one-time calls
+            detect_units()
+            idx_check()
+            track_length = ir['WeekendInfo']['TrackLength']
+            track_length_spl = track_length.split()
+            Telem.lap_distance = float(track_length_spl[0])
+            Fuel.used_lap_list = []
+            Fuel.last_level = ir['FuelLevel']
+            State.count = ir['LapCompleted'] + 1
 
-        fueling = threading.Thread(target=fueling_thread)
-        fueling.start()
-        warnings = threading.Thread(target=warnings_thread, daemon=True)
-        warnings.start()
+            fueling = threading.Thread(target=fueling_thread)
+            fueling.start()
+            warnings = threading.Thread(target=warnings_thread, daemon=True)
+            warnings.start()
 
-        fuel_calc_init()
+            fuel_calc_init()
 
-        # Printing session info
-        separator()
-        print("Weekend")
-        print(State.sep_2)
-        print("Track: " + weekend_info("TrackName", 0), "Car: " + drv_info("Drivers", "CarPath"),
-              "Length: " + distance(Telem.lap_distance, "km"),
-              "Date: " + weekend_options("Date", 0) + " " + weekend_options("TimeOfDay", 0) + weekend_options("TimeOfDay", 1),
-              "Rubber: " + session_info("SessionTrackRubberState"), "Max Fuel: " + percent(Fuel.max_pct), sep=', ')
-        State.print_sep = False
-        session()
+            # Printing session info
+            separator()
+            print("Weekend")
+            print(State.sep_2)
+            print("Track: " + weekend_info("TrackName", 0), "Car: " + drv_info("Drivers", "CarPath"),
+                  "Length: " + distance(Telem.lap_distance, "km"),
+                  "Date: " + weekend_options("Date", 0) + " " + weekend_options("TimeOfDay", 0) + weekend_options("TimeOfDay", 1),
+                  "Rubber: " + session_info("SessionTrackRubberState"), "Max Fuel: " + percent(Fuel.max_pct), sep=', ')
+            State.print_sep = False
+            session()
 
-        # Needed to "reset" keyboard module for some reason
-        keyboard.write("")
+            # Needed to "reset" keyboard module for some reason
+            time.sleep(1)
+            keyboard.write("")
+    except ConnectionResetError:
+        pass
 
 
 # Main loop (run in thread because of GUI weirdness)
@@ -934,7 +938,7 @@ def main():
 
     if session_info("SessionType") == "Offline Testing" or session_info("SessionType") == "Practice":
         if drv_info("DriverCarMaxFuelPct", 0) == 1:
-            Fuel.max_pct = gui.Vars.spin["practice_laps"] / 100
+            Fuel.max_pct = gui.Vars.spin["practice_fuel_percent"] / 100
 
         if ir['OilTemp'] == 77.0 and State.reset_laps == 1:
             Telem.laps_completed = 0
