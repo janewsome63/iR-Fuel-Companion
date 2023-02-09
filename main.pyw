@@ -29,7 +29,7 @@ class State:
     spotter = False
     surface = -1
     trigger = False
-    version = "v0.2.1"
+    version = "v0.2.2"
 
 
 # Fuel variables
@@ -280,12 +280,21 @@ def controls_thread():
         if gui.Binds.keys["set_required"] == keybind.Vars.button:
             time.sleep(0.25)
             if State.ir_connected:
-                if gui.Vars.combo["auto_fuel_type"] == "Max":
-                    fuel_add = Fuel.level_req_max + (Fuel.used_lap_max * gui.Vars.spin["extra_laps"])
-                elif gui.Vars.combo["auto_fuel_type"] == "Fixed":
-                    fuel_add = Fuel.level_req_fixed + (Fuel.used_lap_fixed * gui.Vars.spin["extra_laps"])
+                if gui.Vars.combo["auto_fuel_type"] == "Average":
+                    if (Telem.laps_remaining + gui.Vars.spin["extra_laps"]) * Fuel.used_lap_avg < ir['FuelLevel']:
+                        fuel_add = 0.0
+                    else:
+                        fuel_add = Fuel.level_req_avg + (Fuel.used_lap_avg * gui.Vars.spin["extra_laps"])
+                elif gui.Vars.combo["auto_fuel_type"] == "Max":
+                    if (Telem.laps_remaining + gui.Vars.spin["extra_laps"]) * Fuel.used_lap_max < ir['FuelLevel']:
+                        fuel_add = 0.0
+                    else:
+                        fuel_add = Fuel.level_req_max + (Fuel.used_lap_max * gui.Vars.spin["extra_laps"])
                 else:
-                    fuel_add = Fuel.level_req_avg + (Fuel.used_lap_avg * gui.Vars.spin["extra_laps"])
+                    if (Telem.laps_remaining + gui.Vars.spin["extra_laps"]) * Fuel.used_lap_fixed < ir['FuelLevel']:
+                        fuel_add = 0.0
+                    else:
+                        fuel_add = Fuel.level_req_fixed + (Fuel.used_lap_fixed * gui.Vars.spin["extra_laps"])
                 if fuel_add + Fuel.last_level <= ir['FuelLevel']:
                     ir.pit_command(11)
                 if fuel_add + Fuel.last_level > ir['FuelLevel']:
@@ -525,7 +534,7 @@ def warnings_thread():
         if Telem.engine & engine_hex[name] == engine_hex[name]:
             Telem.engine_list.append(name)
 
-    while State.ir_connected:
+    while True:
         Telem.flag_list = []
         flag_compare("checkered")
         flag_compare("white")
@@ -632,29 +641,35 @@ def fuel_calc():
 
 def fueling_thread():
     time.sleep(5)
-    pitting = True
     pitting_chgd = True
-    while State.ir_connected:
-        while State.spectator and State.spotter and session_info("SessionType") == "Race" and gui.Vars.checkboxes["auto_fuel"]:
-            if "caution" in Telem.flag_list:
+    while True:
+        while not State.spectator and not State.spotter and session_info("SessionType") == "Offline Testing" or session_info("SessionType") == "Practice" or session_info("SessionType") == "Race" and gui.Vars.checkboxes["auto_fuel"]:
+            if "black" not in Telem.flag_list:
                 flag_chk = True
-            elif "caution_waving" in Telem.flag_list:
-                flag_chk = True
-            elif "yellow" in Telem.flag_list:
-                flag_chk = True
-            elif "yellow_waving" in Telem.flag_list:
-                flag_chk = True
-            elif "black" in Telem.flag_list:
-                flag_chk = False
             else:
-                flag_chk = True
+                flag_chk = False
+            if ir['CarIdxTrackSurface'][Telem.driver_idx] == 1:
+                pitting = True
+            else:
+                pitting = False
+            if pitting_chgd == pitting:
+                pitting_chgd = True
             if pitting and pitting_chgd and flag_chk and ir['OilTemp'] != 77.0:
                 if gui.Vars.combo["auto_fuel_type"] == "Average":
-                    fuel_add = Fuel.level_req_avg + (Fuel.used_lap_avg * gui.Vars.spin["extra_laps"])
+                    if (Telem.laps_remaining + gui.Vars.spin["extra_laps"]) * Fuel.used_lap_avg < ir['FuelLevel']:
+                        fuel_add = 0.0
+                    else:
+                        fuel_add = Fuel.level_req_avg + (Fuel.used_lap_avg * gui.Vars.spin["extra_laps"])
                 elif gui.Vars.combo["auto_fuel_type"] == "Max":
-                    fuel_add = Fuel.level_req_max + (Fuel.used_lap_max * gui.Vars.spin["extra_laps"])
+                    if (Telem.laps_remaining + gui.Vars.spin["extra_laps"]) * Fuel.used_lap_max < ir['FuelLevel']:
+                        fuel_add = 0.0
+                    else:
+                        fuel_add = Fuel.level_req_max + (Fuel.used_lap_max * gui.Vars.spin["extra_laps"])
                 else:
-                    fuel_add = Fuel.level_req_fixed + (Fuel.used_lap_fixed * gui.Vars.spin["extra_laps"])
+                    if (Telem.laps_remaining + gui.Vars.spin["extra_laps"]) * Fuel.used_lap_fixed < ir['FuelLevel']:
+                        fuel_add = 0.0
+                    else:
+                        fuel_add = Fuel.level_req_fixed + (Fuel.used_lap_fixed * gui.Vars.spin["extra_laps"])
                 if len(Fuel.used_lap_list) < 1:
                     fuel_add = Fuel.level_full
                 if fuel_add + Fuel.last_level <= ir['FuelLevel']:
@@ -667,13 +682,7 @@ def fueling_thread():
                             break
                         time.sleep(1 / 60)
                 pitting_chgd = False
-            if ir['CarIdxTrackSurface'][Telem.driver_idx] == 1:
-                pitting = True
-            else:
-                pitting = False
-            if pitting_chgd == pitting:
-                pitting_chgd = True
-            time.sleep(1 / 60)
+            time.sleep(1 / 20)
         time.sleep(1 / 5)
 
 
@@ -877,11 +886,6 @@ def check_iracing():
             Fuel.last_level = ir['FuelLevel']
             State.count = ir['LapCompleted'] + 1
 
-            fueling = threading.Thread(target=fueling_thread)
-            fueling.start()
-            warnings = threading.Thread(target=warnings_thread, daemon=True)
-            warnings.start()
-
             fuel_calc_init()
 
             # Printing session info
@@ -1059,7 +1063,7 @@ def init():
     # Check for updates
     if gui.Vars.checkboxes["check_updates"]:
         try:
-            with urllib.request.urlopen('https://www.renovamenia.com/files/public/janewsome63/iR_Fuel_Companion/version.txt') as file:
+            with urllib.request.urlopen('https://www.renovamenia.com/files/iracing/other/iR_Fuel_Companion/version.txt') as file:
                 server_version = file.read().decode('utf-8').strip("v").split('.')
                 local_version = State.version.strip("v").split('.')
                 if local_version[0] < server_version[0]:
@@ -1125,10 +1129,12 @@ if __name__ == '__main__':
         gui.set_config()
     read_config()
     tts = wincl.Dispatch("SAPI.SpVoice")
-    #    threading.Thread(target=keybind.gamepad, daemon=True).start()
+    # threading.Thread(target=keybind.gamepad, daemon=True).start()
     threading.Thread(target=keybind.keys, daemon=True).start()
     threading.Thread(target=controls_thread, daemon=True).start()
     threading.Thread(target=binding_thread, daemon=True).start()
     threading.Thread(target=init, daemon=True).start()
+    threading.Thread(target=fueling_thread, daemon=True).start()
+    threading.Thread(target=warnings_thread, daemon=True).start()
 
     gui.main(State.version)
