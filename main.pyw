@@ -29,7 +29,7 @@ class State:
     spotter = False
     surface = -1
     trigger = False
-    version = "v0.2.2"
+    version = "v0.2.3"
 
 
 # Fuel variables
@@ -534,7 +534,7 @@ def warnings_thread():
         if Telem.engine & engine_hex[name] == engine_hex[name]:
             Telem.engine_list.append(name)
 
-    while True:
+    while State.ir_connected:
         Telem.flag_list = []
         flag_compare("checkered")
         flag_compare("white")
@@ -641,49 +641,49 @@ def fuel_calc():
 
 def fueling_thread():
     time.sleep(5)
-    pitting_chgd = True
-    while True:
-        while not State.spectator and not State.spotter and session_info("SessionType") == "Offline Testing" or session_info("SessionType") == "Practice" or session_info("SessionType") == "Race" and gui.Vars.checkboxes["auto_fuel"]:
+    status_prev = "pitting"
+    while State.ir_connected:
+        if gui.Vars.checkboxes["auto_fuel"] and "Qualify" not in session_info("SessionType") and not State.spectator and not State.spotter:
             if "black" not in Telem.flag_list:
                 flag_chk = True
             else:
                 flag_chk = False
             if ir['CarIdxTrackSurface'][Telem.driver_idx] == 1:
-                pitting = True
+                status = "pitting"
             else:
-                pitting = False
-            if pitting_chgd == pitting:
-                pitting_chgd = True
-            if pitting and pitting_chgd and flag_chk and ir['OilTemp'] != 77.0:
-                if gui.Vars.combo["auto_fuel_type"] == "Average":
-                    if (Telem.laps_remaining + gui.Vars.spin["extra_laps"]) * Fuel.used_lap_avg < ir['FuelLevel']:
-                        fuel_add = 0.0
+                status = "driving"
+            if status_prev != status:
+                if status == "pitting" and flag_chk and ir['OilTemp'] != 77.0:
+                    if gui.Vars.combo["auto_fuel_type"] == "Average":
+                        if (Telem.laps_remaining + gui.Vars.spin["extra_laps"]) * Fuel.used_lap_avg < ir['FuelLevel']:
+                            fuel_add = 0.0
+                        else:
+                            fuel_add = Fuel.level_req_avg + (Fuel.used_lap_avg * gui.Vars.spin["extra_laps"])
+                    elif gui.Vars.combo["auto_fuel_type"] == "Max":
+                        if (Telem.laps_remaining + gui.Vars.spin["extra_laps"]) * Fuel.used_lap_max < ir['FuelLevel']:
+                            fuel_add = 0.0
+                        else:
+                            fuel_add = Fuel.level_req_max + (Fuel.used_lap_max * gui.Vars.spin["extra_laps"])
                     else:
-                        fuel_add = Fuel.level_req_avg + (Fuel.used_lap_avg * gui.Vars.spin["extra_laps"])
-                elif gui.Vars.combo["auto_fuel_type"] == "Max":
-                    if (Telem.laps_remaining + gui.Vars.spin["extra_laps"]) * Fuel.used_lap_max < ir['FuelLevel']:
-                        fuel_add = 0.0
-                    else:
-                        fuel_add = Fuel.level_req_max + (Fuel.used_lap_max * gui.Vars.spin["extra_laps"])
-                else:
-                    if (Telem.laps_remaining + gui.Vars.spin["extra_laps"]) * Fuel.used_lap_fixed < ir['FuelLevel']:
-                        fuel_add = 0.0
-                    else:
-                        fuel_add = Fuel.level_req_fixed + (Fuel.used_lap_fixed * gui.Vars.spin["extra_laps"])
-                if len(Fuel.used_lap_list) < 1:
-                    fuel_add = Fuel.level_full
-                if fuel_add + Fuel.last_level <= ir['FuelLevel']:
-                    ir.pit_command(11)
-                if fuel_add + Fuel.last_level > ir['FuelLevel']:
-                    ir.pit_command(2, int(round(fuel_add, 0)))
-                    while ir['CarIdxTrackSurface'][Telem.driver_idx] == 1:
-                        if fuel_add + Fuel.last_level <= ir['FuelLevel']:
-                            ir.pit_command(11)
-                            break
-                        time.sleep(1 / 60)
-                pitting_chgd = False
-            time.sleep(1 / 20)
-        time.sleep(1 / 5)
+                        if (Telem.laps_remaining + gui.Vars.spin["extra_laps"]) * Fuel.used_lap_fixed < ir['FuelLevel']:
+                            fuel_add = 0.0
+                        else:
+                            fuel_add = Fuel.level_req_fixed + (Fuel.used_lap_fixed * gui.Vars.spin["extra_laps"])
+                    if len(Fuel.used_lap_list) < 1 or fuel_add > Fuel.level_full:
+                        fuel_add = Fuel.level_full
+                    if fuel_add + Fuel.last_level <= ir['FuelLevel']:
+                        ir.pit_command(11)
+                    elif fuel_add + Fuel.last_level > ir['FuelLevel']:
+                        ir.pit_command(2, int(round(fuel_add, 0)))
+                        while ir['CarIdxTrackSurface'][Telem.driver_idx] == 1:
+                            if fuel_add + Fuel.last_level <= ir['FuelLevel']:
+                                ir.pit_command(11)
+                                break
+                            elif ir['FuelLevel'] >= Fuel.level_full:
+                                break
+                            time.sleep(1 / 60)
+            status_prev = status
+        time.sleep(1 / 20)
 
 
 def pit_report():
@@ -868,6 +868,9 @@ def check_iracing():
         elif not State.ir_connected and ir.startup() and ir.is_initialized and ir.is_connected:
             State.ir_connected = True
 
+            threading.Thread(target=fueling_thread, daemon=True).start()
+            threading.Thread(target=warnings_thread, daemon=True).start()
+
             separator()
             print('iRacing Connected')
             print(State.sep_1)
@@ -937,7 +940,7 @@ def main():
     if ((ir['AirTemp'] * 1.8) + 32) > ((Telem.last_atemp * 1.8) + 32) + 1 or ((ir['AirTemp'] * 1.8) + 32) < ((Telem.last_atemp * 1.8) + 32) - 1:
         air_temp()
 
-    if ((ir['TrackTempCrew'] * 1.8) + 32) > ((Telem.last_ttemp * 1.8) + 32) + 4 or ((ir['TrackTempCrew'] * 1.8) + 32) < ((Telem.last_ttemp * 1.8) + 32) - 4:
+    if ((ir['TrackTempCrew'] * 1.8) + 32) > ((Telem.last_ttemp * 1.8) + 32) + 3 or ((ir['TrackTempCrew'] * 1.8) + 32) < ((Telem.last_ttemp * 1.8) + 32) - 3:
         track_temp()
 
     if session_info("SessionType") == "Offline Testing" or session_info("SessionType") == "Practice":
@@ -1079,7 +1082,7 @@ def init():
                     print("Update v" + server_version[0] + "." + server_version[1] + "." + server_version[2] + " available! https://github.com/janewsome63/iR-Fuel-Companion/releases")
                     print(State.sep_1)
         except urllib.error.URLError as error:
-            print("Cannot connect to update server! " + str(error))
+            print("Update checking failed, cannot connect to update server! " + str(error))
             print(State.sep_1)
 
     try:
@@ -1134,7 +1137,5 @@ if __name__ == '__main__':
     threading.Thread(target=controls_thread, daemon=True).start()
     threading.Thread(target=binding_thread, daemon=True).start()
     threading.Thread(target=init, daemon=True).start()
-    threading.Thread(target=fueling_thread, daemon=True).start()
-    threading.Thread(target=warnings_thread, daemon=True).start()
 
     gui.main(State.version)
