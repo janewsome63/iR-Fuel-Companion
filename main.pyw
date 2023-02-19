@@ -1,17 +1,17 @@
 import configparser
-from datetime import datetime
-import gui
-import irsdk
-import keybind
-import keyboard
+import logging
 import math
 import os
-import pythoncom
-import sys
 import threading
 import time
-import win32com.client as wincl
 import urllib.request
+from datetime import datetime
+import irsdk
+import keyboard
+import pythoncom
+import win32com.client as wincl
+import gui
+import keybind
 
 
 # Random variables and functions for main thread
@@ -21,7 +21,7 @@ class State:
     no_connection = "no eye racing connection"
     laps_completed = 0
     metric = True
-    print_sep = True
+    log_sep = True
     reset_laps = 0
     sep_1 = "=" * 138
     sep_2 = "-" * 138
@@ -29,7 +29,7 @@ class State:
     spotter = False
     surface = -1
     trigger = False
-    version = "v0.2.3"
+    version = "v0.2.4"
 
 
 # Fuel variables
@@ -701,29 +701,25 @@ def pit_report():
         avg_time = duration(avg / len(Telem.lap_time_list))
     ir.unfreeze_var_buffer_latest()
     separator()
-    print("Lap", ir['LapCompleted'] + 1, "Pit Report")
-    print(State.sep_2)
-    print("Stint: " + str(Telem.stint_laps) + " laps", "Avg Time: " + avg_time,
-          "Avg Used: " + volume(Fuel.stint_used_avg, "short"), "Avg Eco: " + economy(Fuel.stint_eco),
-          "Total Used: " + volume(Fuel.stint_used, "short"), sep=', ')
-    print(State.sep_1)
-    print("Tire Wear")
-    print(State.sep_2)
-    print("LF: ", percent(ir['LFwearL']), percent(ir['LFwearM']), percent(ir['LFwearR']), "     ", "RF: ",
-          percent(ir['RFwearL']), percent(ir['RFwearM']), percent(ir['RFwearR']))
-    print("")
-    print("LR: ", percent(ir['LRwearL']), percent(ir['LRwearM']), percent(ir['LRwearR']), "     ", "RR: ",
-          percent(ir['RRwearL']), percent(ir['RRwearM']), percent(ir['RRwearR']))
-    print(State.sep_1)
-    print("Tire Temp")
-    print(State.sep_2)
-    print("LF: ", temperature(ir['LFtempCL'], "string"), temperature(ir['LFtempCM'], "string"), temperature(ir['LFtempCR'], "string"), "     ", "RF: ",
-          temperature(ir['RFtempCL'], "string"), temperature(ir['RFtempCM'], "string"), temperature(ir['RFtempCR'], "string"))
-    print("")
-    print("LR: ", temperature(ir['LRtempCL'], "string"), temperature(ir['LRtempCM'], "string"), temperature(ir['LRtempCR'], "string"), "     ", "RR: ",
-          temperature(ir['RRtempCL'], "string"), temperature(ir['RRtempCM'], "string"), temperature(ir['RRtempCR'], "string"))
-    print(State.sep_1)
-    State.print_sep = True
+    log("Lap " + (ir['LapCompleted'] + 1) + " Pit Report")
+    log(State.sep_2)
+    log("Stint: " + str(Telem.stint_laps) + " laps" + ", " + "Avg Time: " + avg_time + ", " + "Avg Used: " + volume(Fuel.stint_used_avg, "short") + ", " + "Avg Eco: " + economy(Fuel.stint_eco) + ", " + "Total Used: " + volume(Fuel.stint_used, "short"))
+    log(State.sep_1)
+    log("Tire Wear")
+    log(State.sep_2)
+    log("LF: " + percent(ir['LFwearL']) + " " + percent(ir['LFwearM']) + " " + percent(ir['LFwearR']) + "     " + "RF: " + percent(ir['RFwearL']) + " " + percent(ir['RFwearM']) + " " + percent(ir['RFwearR']))
+    log("")
+    log("LR: " + percent(ir['LRwearL']) + " " + percent(ir['LRwearM']) + " " + percent(ir['LRwearR']) + "     " + "RR: " + percent(ir['RRwearL']) + " " + percent(ir['RRwearM']) + " " + percent(ir['RRwearR']))
+    log(State.sep_1)
+    log("Tire Temp")
+    log(State.sep_2)
+    log("LF: " + temperature(ir['LFtempCL'], "string") + " " + temperature(ir['LFtempCM'], "string") + " " + temperature(ir['LFtempCR'], "string") + "     " +
+        "RF: " + temperature(ir['RFtempCL'], "string") + " " + temperature(ir['RFtempCM'], "string") + " " + temperature(ir['RFtempCR'], "string"))
+    log("")
+    log("LR: " + temperature(ir['LRtempCL'], "string") + " " + temperature(ir['LRtempCM'], "string") + " " + temperature(ir['LRtempCR'], "string") + "     " +
+        "RR: " + temperature(ir['RRtempCL'], "string") + " " + temperature(ir['RRtempCM'], "string") + " " + temperature(ir['RRtempCR'], "string"))
+    log(State.sep_1)
+    State.log_sep = True
     Telem.stint_laps = 0
     Fuel.stint_used = 0.0
     Telem.lap_time_list = []
@@ -795,20 +791,18 @@ def sky():
 
 # Func to not double up on separators because it bothered me
 def separator():
-    if not State.print_sep:
-        print(State.sep_1)
+    if not State.log_sep:
+        log(State.sep_1)
 
 
-# Print session info
+# Log session info
 def session():
     separator()
-    print(session_info("SessionType"))
-    print(State.sep_2)
-    print("Skies: " + sky(), "Air: " + temperature(ir['AirTemp'], "string"), "Surface: " + temperature(ir['TrackTempCrew'], "string"),
-          "Wind: " + wind() + " @ " + speed(ir['WindVel']),
-          "Humidity: " + percent(ir['RelativeHumidity']), "Pressure: " + pressure(ir['AirPressure']),
-          "Density: " + density(ir['AirDensity']), sep=', ')
-    print(State.sep_1)
+    log(session_info("SessionType"))
+    log(State.sep_2)
+    log("Skies: " + sky() + ", " + "Air: " + temperature(ir['AirTemp'], "string") + ", " + "Surface: " + temperature(ir['TrackTempCrew'], "string") + ", " + "Wind: " + wind() + " @ " + speed(ir['WindVel']) + ", " +
+        "Humidity: " + percent(ir['RelativeHumidity']) + ", " + "Pressure: " + pressure(ir['AirPressure']) + ", " + "Density: " + density(ir['AirDensity']))
+    log(State.sep_1)
     Telem.last_atemp = ir['AirTemp']
     Telem.last_ttemp = ir['TrackTempCrew']
     Telem.laps_completed = 0
@@ -818,7 +812,7 @@ def session():
     Fuel.used_lap_list = []
     State.reset_laps = 0
     Fuel.max_pct = drv_info("DriverCarMaxFuelPct", 0)
-    State.print_sep = True
+    State.log_sep = True
     Telem.session = session_info("SessionType")
 
 
@@ -831,9 +825,9 @@ def air_temp():
             speech = threading.Thread(target=speech_thread, args=("air temp has decreased to " + str(round(temperature(ir['AirTemp'], "number"))) + " degrees",))
             speech.start()
     separator()
-    print("Ambient: " + temperature(ir['AirTemp'], "string"))
-    print(State.sep_1)
-    State.print_sep = True
+    log("Ambient: " + temperature(ir['AirTemp'], "string"))
+    log(State.sep_1)
+    State.log_sep = True
     Telem.last_atemp = ir['AirTemp']
 
 
@@ -846,9 +840,9 @@ def track_temp():
             speech = threading.Thread(target=speech_thread, args=("track temp has decreased to " + str(round(temperature(ir['TrackTempCrew'], "number"))) + " degrees",))
             speech.start()
     separator()
-    print("Surface: " + temperature(ir['TrackTempCrew'], "string"))
-    print(State.sep_1)
-    State.print_sep = True
+    log("Surface: " + temperature(ir['TrackTempCrew'], "string"))
+    log(State.sep_1)
+    State.log_sep = True
     Telem.last_ttemp = ir['TrackTempCrew']
 
 
@@ -859,9 +853,9 @@ def check_iracing():
             State.ir_connected = False
             ir.shutdown()
             separator()
-            print('iRacing Disconnected')
-            print(State.sep_1)
-            State.print_sep = True
+            log('iRacing Disconnected')
+            log(State.sep_1)
+            State.log_sep = True
             Telem.session = 0
             State.spectator = False
             State.spotter = False
@@ -872,9 +866,9 @@ def check_iracing():
             threading.Thread(target=warnings_thread, daemon=True).start()
 
             separator()
-            print('iRacing Connected')
-            print(State.sep_1)
-            State.print_sep = True
+            log('iRacing Connected')
+            log(State.sep_1)
+            State.log_sep = True
             speech = threading.Thread(target=speech_thread, args=("Fuel companion connected",))
             speech.start()
             time.sleep(3)
@@ -891,15 +885,13 @@ def check_iracing():
 
             fuel_calc_init()
 
-            # Printing session info
+            # Logging session info
             separator()
-            print("Weekend")
-            print(State.sep_2)
-            print("Track: " + weekend_info("TrackName", 0), "Car: " + drv_info("Drivers", "CarPath"),
-                  "Length: " + distance(Telem.lap_distance, "km"),
-                  "Date: " + weekend_options("Date", 0) + " " + weekend_options("TimeOfDay", 0) + weekend_options("TimeOfDay", 1),
-                  "Rubber: " + session_info("SessionTrackRubberState"), "Max Fuel: " + percent(Fuel.max_pct), sep=', ')
-            State.print_sep = False
+            log("Weekend")
+            log(State.sep_2)
+            log("Track: " + weekend_info("TrackName", 0) + ", " + "Car: " + drv_info("Drivers", "CarPath") + ", " + "Length: " + distance(Telem.lap_distance, "km") + ", " +
+                "Date: " + weekend_options("Date", 0) + " " + weekend_options("TimeOfDay", 0) + weekend_options("TimeOfDay", 1) + ", " + "Rubber: " + session_info("SessionTrackRubberState") + ", " + "Max Fuel: " + percent(Fuel.max_pct))
+            State.log_sep = False
             session()
 
             # Needed to "reset" keyboard module for some reason
@@ -1010,7 +1002,7 @@ def main():
                 time.sleep(0.1)
                 ir.chat_command(3)
 
-        # Info to print to file/terminal
+        # Info to log
         ir.unfreeze_var_buffer_latest()
         time.sleep(1)
         if len(Telem.lap_time_list) > 0:
@@ -1026,11 +1018,11 @@ def main():
 
         if Telem.laps_completed <= ir['SessionLapsTotal']:
             if session_info("SessionType") == "Offline Testing" or session_info("SessionType") == "Practice":
-                print("Lap ", ir['LapCompleted'], " [Time: ", lap_time, " | Laps: ", round(Fuel.laps_left, 2), " | Used: ", volume(Fuel.used_lap, "short"), " | Eco: ", economy(Fuel.eco), "]", sep='')
+                log("Lap " + ir['LapCompleted'] + " [Time: " + lap_time + " | Laps: " + str(round(Fuel.laps_left, 2)) + " | Used: " + volume(Fuel.used_lap, "short") + " | Eco: " + economy(Fuel.eco) + "]")
             else:
-                print("Lap ", ir['LapCompleted'], " [Time: ", lap_time, " | Laps: ", round(Fuel.laps_left, 2), " | Used: ", volume(Fuel.used_lap, "short"), " | Usage Req: ", volume(Fuel.used_lap_req, "short"), " | Eco: ", economy(Fuel.eco),
-                      " | Eco Req: ", economy(Fuel.eco_req), " | Level Req: ", volume(Fuel.level_req, "short"), "]", sep='')
-            State.print_sep = False
+                log("Lap " + ir['LapCompleted'] + " [Time: " + lap_time + " | Laps: " + str(round(Fuel.laps_left, 2)) + " | Used: " + volume(Fuel.used_lap, "short") + " | Usage Req: " + volume(Fuel.used_lap_req, "short") + " | Eco: " + economy(Fuel.eco) +
+                    " | Eco Req: " + economy(Fuel.eco_req) + " | Level Req: " + volume(Fuel.level_req, "short") + "]")
+            State.log_sep = False
 
         # Lap finishing actions
         Fuel.last_level = Fuel.level
@@ -1060,8 +1052,8 @@ def main():
 
 def init():
     time.sleep(1)
-    print("iR Fuel Companion " + State.version)
-    print(State.sep_1)
+    log("iR Fuel Companion " + State.version)
+    log(State.sep_1)
 
     # Check for updates
     if gui.Vars.checkboxes["check_updates"]:
@@ -1079,11 +1071,11 @@ def init():
                     available = False
                 if available:
                     threading.Thread(target=speech_thread, args=("Update v" + server_version[0] + "." + server_version[1] + "." + server_version[2] + " available!",)).start()
-                    print("Update v" + server_version[0] + "." + server_version[1] + "." + server_version[2] + " available! https://github.com/janewsome63/iR-Fuel-Companion/releases")
-                    print(State.sep_1)
+                    log("Update v" + server_version[0] + "." + server_version[1] + "." + server_version[2] + " available! https://github.com/janewsome63/iR-Fuel-Companion/releases")
+                    log(State.sep_1)
         except urllib.error.URLError as error:
-            print("Update checking failed, cannot connect to update server! " + str(error))
-            print(State.sep_1)
+            log("Update checking failed, cannot connect to update server! " + str(error))
+            log(State.sep_1)
 
     try:
         # Check connection and start (or not) loop
@@ -1091,7 +1083,6 @@ def init():
             check_iracing()
             if State.ir_connected:
                 main()
-            te.flush()
             # Data read delay (min 1/60)
             time.sleep(1 / 15)
     except KeyboardInterrupt:
@@ -1099,31 +1090,36 @@ def init():
 
 
 Date = datetime.now()
-DateStr = Date.strftime("%Y-%m-%d_%H.%M.%S")
+DateStr = Date.strftime("%Y-%m-%d")
 
 # Create user settings folder
-gui.Vars.user_dir = os.path.expanduser("~") + '\\' + 'AppData\\' + 'Local\\' + 'iR Fuel Companion'
+gui.Vars.user_dir = os.path.expanduser("~") + '\\AppData\\Local\\iR Fuel Companion'
 if not os.path.exists(gui.Vars.user_dir):
     os.makedirs(gui.Vars.user_dir)
+
+# Logging
+# Create logs folder
 if not os.path.exists(gui.Vars.user_dir + '\\logs'):
     os.makedirs(gui.Vars.user_dir + '\\logs')
 
-# Write to log file and stdout
-te = open(gui.Vars.user_dir + '\\logs\\' + DateStr + '.txt', 'w')
+# Create a logger
+logger = logging.getLogger(__name__)
+
+# Create a file handler
+file_handler = logging.FileHandler(gui.Vars.user_dir + '\\logs\\' + DateStr + '.txt')
+
+# Add the file handler to the logger
+logger.addHandler(file_handler)
+
+# Set the logging level
+logger.setLevel(logging.INFO)
 
 
-class Unbuffered:
+# Define the fuction to log to both stdout and file
+def log(text):
+    logger.info(text)
+    print(text)
 
-    def __init__(self, stream):
-        self.stream = stream
-
-    def write(self, data):
-        self.stream.write(data)
-        self.stream.flush()
-        te.write(data)
-
-
-sys.stdout = Unbuffered(sys.stdout)
 
 if __name__ == '__main__':
     # Initializing ir and State

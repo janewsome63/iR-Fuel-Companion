@@ -1,6 +1,5 @@
-/logs/
-/settings.ini
 /venv/
-/pyinstaller/
-/icon.ico
-/saved/
+/build/
+/dist/
+/main.spec
+/other/
