@@ -29,7 +29,7 @@ class State:
     spotter = False
     surface = -1
     trigger = False
-    version = "v0.2.4"
+    version = "v0.2.5"
 
 
 # Fuel variables
@@ -701,7 +701,7 @@ def pit_report():
         avg_time = duration(avg / len(Telem.lap_time_list))
     ir.unfreeze_var_buffer_latest()
     separator()
-    log("Lap " + (ir['LapCompleted'] + 1) + " Pit Report")
+    log("Lap " + str(ir['LapCompleted'] + 1) + " Pit Report")
     log(State.sep_2)
     log("Stint: " + str(Telem.stint_laps) + " laps" + ", " + "Avg Time: " + avg_time + ", " + "Avg Used: " + volume(Fuel.stint_used_avg, "short") + ", " + "Avg Eco: " + economy(Fuel.stint_eco) + ", " + "Total Used: " + volume(Fuel.stint_used, "short"))
     log(State.sep_1)
@@ -1018,10 +1018,10 @@ def main():
 
         if Telem.laps_completed <= ir['SessionLapsTotal']:
             if session_info("SessionType") == "Offline Testing" or session_info("SessionType") == "Practice":
-                log("Lap " + ir['LapCompleted'] + " [Time: " + lap_time + " | Laps: " + str(round(Fuel.laps_left, 2)) + " | Used: " + volume(Fuel.used_lap, "short") + " | Eco: " + economy(Fuel.eco) + "]")
+                log("Lap " + str(ir['LapCompleted']) + " [Time: " + lap_time + " | Laps: " + str(round(Fuel.laps_left, 2)) + " | Used: " + volume(Fuel.used_lap, "short") + " | Eco: " + economy(Fuel.eco) + "]")
             else:
-                log("Lap " + ir['LapCompleted'] + " [Time: " + lap_time + " | Laps: " + str(round(Fuel.laps_left, 2)) + " | Used: " + volume(Fuel.used_lap, "short") + " | Usage Req: " + volume(Fuel.used_lap_req, "short") + " | Eco: " + economy(Fuel.eco) +
-                    " | Eco Req: " + economy(Fuel.eco_req) + " | Level Req: " + volume(Fuel.level_req, "short") + "]")
+                log("Lap " + str(ir['LapCompleted']) + " [Time: " + lap_time + " | Laps: " + str(round(Fuel.laps_left, 2)) + " | Used: " + volume(Fuel.used_lap, "short") + " | Usage Req: " + volume(Fuel.used_lap_req, "short") + " | Eco: " +
+                    economy(Fuel.eco) + " | Eco Req: " + economy(Fuel.eco_req) + " | Level Req: " + volume(Fuel.level_req, "short") + "]")
             State.log_sep = False
 
         # Lap finishing actions
