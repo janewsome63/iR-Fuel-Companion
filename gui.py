@@ -21,6 +21,8 @@ class Vars:
     }
     input = {
         "fixed_usage": 0.123,
+        "oil_threshold": 0,
+        "water_threshold": 0,
     }
     spin = {
         "extra_laps": 2,
@@ -88,6 +90,8 @@ def set_config():
     config['Updates'] = {
         'check_updates': Vars.checkboxes["check_updates"],
         'engine_warnings': Vars.checkboxes["engine_warnings"],
+        'oil_threshold': Vars.input["oil_threshold"],
+        'water_threshold': Vars.input["water_threshold"],
         'tts_fuel': Vars.checkboxes["tts_fuel"],
         'txt_fuel': Vars.checkboxes["txt_fuel"],
         'temp_updates': Vars.checkboxes["temp_updates"],
@@ -131,6 +135,8 @@ def main(version):
         [Sg.Push(), Sg.Text(text="Alerts & System:"), Sg.Push()],
         [Sg.Checkbox('Check for Updates', default=Vars.checkboxes["check_updates"], key='check-check_updates', enable_events=True)],
         [Sg.Checkbox('Engine Warnings', default=Vars.checkboxes["engine_warnings"], key='check-engine_warnings', enable_events=True)],
+        [Sg.Text(text="Oil Threshold:"), Sg.InputText(Vars.input["oil_threshold"], size=(5, 1), key='input_float-oil_threshold', enable_events=True)],
+        [Sg.Text(text="Water Threshold:"), Sg.InputText(Vars.input["water_threshold"], size=(5, 1), key='input_float-water_threshold', enable_events=True)],
         [Sg.Checkbox('Fuel (TTS)', default=Vars.checkboxes["tts_fuel"], key='check-tts_fuel', enable_events=True)],
         [Sg.Checkbox('Fuel (Text)', default=Vars.checkboxes["txt_fuel"], key='check-txt_fuel', enable_events=True)],
         [Sg.Checkbox('Temperature', default=Vars.checkboxes["temp_updates"], key='check-temp_updates', enable_events=True)],

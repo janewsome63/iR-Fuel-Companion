@@ -76,10 +76,16 @@ class Telem:
     last_ttemp = 0.0
     last_atemp = 0.0
     location = 1
+    oil_temp_warning = 999.0
+    oil_trigger = False
     oil_warned = False
+    oil_warning_prev = False
     session = 0
     stint_laps = 0
+    water_temp_warning = 999.0
+    water_trigger = False
     water_warned = False
+    water_warning_prev = False
 
 
 # Unit Conversion Ref:
@@ -422,14 +428,20 @@ def read_config():
         gui.Vars.spin["extra_laps"] = config.getint('Fueling', 'extra_laps')
 
     # Updates
+    if config.has_option('Updates', 'check_updates'):
+        gui.Vars.checkboxes["check_updates"] = config.getboolean('Updates', 'check_updates')
+    if config.has_option('Updates', 'engine_warnings'):
+        gui.Vars.checkboxes["engine_warnings"] = config.getboolean('Updates', 'engine_warnings')
+    if config.has_option('Updates', 'oil_threshold'):
+        gui.Vars.input["oil_threshold"] = config.getfloat('Updates', 'oil_threshold')
+    if config.has_option('Updates', 'water_threshold'):
+        gui.Vars.input["water_threshold"] = config.getfloat('Updates', 'water_threshold')
     if config.has_option('Updates', 'tts_fuel'):
         gui.Vars.checkboxes["tts_fuel"] = config.getboolean('Updates', 'tts_fuel')
     if config.has_option('Updates', 'txt_fuel'):
         gui.Vars.checkboxes["txt_fuel"] = config.getboolean('Updates', 'txt_fuel')
     if config.has_option('Updates', 'temp_updates'):
         gui.Vars.checkboxes["temp_updates"] = config.getboolean('Updates', 'temp_updates')
-    if config.has_option('Updates', 'check_updates'):
-        gui.Vars.checkboxes["check_updates"] = config.getboolean('Updates', 'check_updates')
 
     # Practice
     if config.has_option('Practice', 'laps'):
@@ -914,27 +926,71 @@ def main():
     if session_type != Telem.session:
         session()
 
+    # Update binary lists
     Telem.flag = ir['SessionFlags']
     Telem.engine = ir['EngineWarnings']
 
+    # Engine temperature warnings
     if gui.Vars.checkboxes["engine_warnings"]:
-        if "oil_temp_warning" in Telem.engine_list and not Telem.oil_warned:
+        # Oil
+        if "oil_temp_warning" in Telem.engine_list:
+            if not Telem.oil_warning_prev and Telem.oil_temp_warning == 999:
+                Telem.oil_temp_warning = ir['OilTemp']
+            Telem.oil_warning_prev = True
+        else:
+            Telem.oil_warning_prev = False
+        if not State.metric:
+            oil_threshold = (gui.Vars.input["oil_threshold"] - 32) * (5 / 9)
+        else:
+            oil_threshold = gui.Vars.input["oil_threshold"]
+        if Telem.oil_temp_warning >= oil_threshold:
+            if ir['OilTemp'] >= Telem.oil_temp_warning:
+                Telem.oil_trigger = True
+            if ir['OilTemp'] <= (Telem.oil_temp_warning - 1):
+                Telem.oil_warned = False
+        elif Telem.oil_temp_warning < oil_threshold:
+            if ir['OilTemp'] >= oil_threshold:
+                Telem.oil_trigger = True
+            if ir['OilTemp'] <= (oil_threshold - 1):
+                Telem.oil_warned = False
+        if Telem.oil_trigger and not Telem.oil_warned:
             threading.Thread(target=speech_thread, args=("oil temp has risen to " + str(round(temperature(ir['OilTemp'], "number"))) + " degrees",)).start()
             Telem.oil_warned = True
-        elif "oil_temp_warning" not in Telem.engine_list and Telem.oil_warned:
-            State.oil_warned = False
-        if "water_temp_warning" in Telem.engine_list and not Telem.water_warned:
+        Telem.oil_trigger = False
+
+        # Water
+        if "water_temp_warning" in Telem.engine_list:
+            if not Telem.water_warning_prev and Telem.water_temp_warning == 999:
+                Telem.water_temp_warning = ir['WaterTemp']
+            Telem.water_warning_prev = True
+        else:
+            Telem.water_warning_prev = False
+        if not State.metric:
+            water_threshold = (gui.Vars.input["water_threshold"] - 32) * (5 / 9)
+        else:
+            water_threshold = gui.Vars.input["water_threshold"]
+        if Telem.water_temp_warning >= water_threshold:
+            if ir['WaterTemp'] >= Telem.water_temp_warning:
+                Telem.water_trigger = True
+            if ir['WaterTemp'] <= (Telem.water_temp_warning - 1):
+                Telem.water_warned = False
+        elif Telem.water_temp_warning < water_threshold:
+            if ir['WaterTemp'] >= water_threshold:
+                Telem.water_trigger = True
+            if ir['WaterTemp'] <= (water_threshold - 1):
+                Telem.water_warned = False
+        if Telem.water_trigger and not Telem.water_warned:
             threading.Thread(target=speech_thread, args=("water temp has risen to " + str(round(temperature(ir['WaterTemp'], "number"))) + " degrees",)).start()
             Telem.water_warned = True
-        elif "water_temp_warning" not in Telem.engine_list and Telem.water_warned:
-            Telem.water_warned = False
+        Telem.water_trigger = False
 
+    # Check air and track temperatures
     if ((ir['AirTemp'] * 1.8) + 32) > ((Telem.last_atemp * 1.8) + 32) + 1 or ((ir['AirTemp'] * 1.8) + 32) < ((Telem.last_atemp * 1.8) + 32) - 1:
         air_temp()
-
     if ((ir['TrackTempCrew'] * 1.8) + 32) > ((Telem.last_ttemp * 1.8) + 32) + 3 or ((ir['TrackTempCrew'] * 1.8) + 32) < ((Telem.last_ttemp * 1.8) + 32) - 3:
         track_temp()
 
+    # Practice race fuel percent and resetting
     if session_info("SessionType") == "Offline Testing" or session_info("SessionType") == "Practice":
         if drv_info("DriverCarMaxFuelPct", 0) == 1:
             Fuel.max_pct = gui.Vars.spin["practice_fuel_percent"] / 100
