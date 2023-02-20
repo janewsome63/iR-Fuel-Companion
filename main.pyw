@@ -29,7 +29,7 @@ class State:
     spotter = False
     surface = -1
     trigger = False
-    version = "v0.2.5"
+    version = "v0.2.6"
 
 
 # Fuel variables
@@ -871,6 +871,8 @@ def check_iracing():
             Telem.session = 0
             State.spectator = False
             State.spotter = False
+            Telem.oil_temp_warning = 999.0
+            Telem.water_temp_warning = 999.0
         elif not State.ir_connected and ir.startup() and ir.is_initialized and ir.is_connected:
             State.ir_connected = True
 
@@ -934,7 +936,7 @@ def main():
     if gui.Vars.checkboxes["engine_warnings"]:
         # Oil
         if "oil_temp_warning" in Telem.engine_list:
-            if not Telem.oil_warning_prev and Telem.oil_temp_warning == 999:
+            if not Telem.oil_warning_prev and Telem.oil_temp_warning == 999.0:
                 Telem.oil_temp_warning = ir['OilTemp']
             Telem.oil_warning_prev = True
         else:
@@ -946,13 +948,17 @@ def main():
         if Telem.oil_temp_warning >= oil_threshold:
             if ir['OilTemp'] >= Telem.oil_temp_warning:
                 Telem.oil_trigger = True
-            if ir['OilTemp'] <= (Telem.oil_temp_warning - 1):
-                Telem.oil_warned = False
+            if ir['OilTemp'] <= (Telem.oil_temp_warning - 3):
+                if Telem.oil_warned:
+                    threading.Thread(target=speech_thread, args=("oil temp has fallen to " + str(round(temperature(ir['OilTemp'], "number"))) + " degrees",)).start()
+                    Telem.oil_warned = False
         elif Telem.oil_temp_warning < oil_threshold:
             if ir['OilTemp'] >= oil_threshold:
                 Telem.oil_trigger = True
-            if ir['OilTemp'] <= (oil_threshold - 1):
-                Telem.oil_warned = False
+            if ir['OilTemp'] <= (oil_threshold - 3):
+                if Telem.oil_warned:
+                    threading.Thread(target=speech_thread, args=("oil temp has fallen to " + str(round(temperature(ir['OilTemp'], "number"))) + " degrees",)).start()
+                    Telem.oil_warned = False
         if Telem.oil_trigger and not Telem.oil_warned:
             threading.Thread(target=speech_thread, args=("oil temp has risen to " + str(round(temperature(ir['OilTemp'], "number"))) + " degrees",)).start()
             Telem.oil_warned = True
@@ -960,7 +966,7 @@ def main():
 
         # Water
         if "water_temp_warning" in Telem.engine_list:
-            if not Telem.water_warning_prev and Telem.water_temp_warning == 999:
+            if not Telem.water_warning_prev and Telem.water_temp_warning == 999.0:
                 Telem.water_temp_warning = ir['WaterTemp']
             Telem.water_warning_prev = True
         else:
@@ -972,13 +978,17 @@ def main():
         if Telem.water_temp_warning >= water_threshold:
             if ir['WaterTemp'] >= Telem.water_temp_warning:
                 Telem.water_trigger = True
-            if ir['WaterTemp'] <= (Telem.water_temp_warning - 1):
-                Telem.water_warned = False
+            if ir['WaterTemp'] <= (Telem.water_temp_warning - 3):
+                if Telem.water_warned:
+                    threading.Thread(target=speech_thread, args=("water temp has fallen to " + str(round(temperature(ir['WaterTemp'], "number"))) + " degrees",)).start()
+                    Telem.water_warned = False
         elif Telem.water_temp_warning < water_threshold:
             if ir['WaterTemp'] >= water_threshold:
                 Telem.water_trigger = True
-            if ir['WaterTemp'] <= (water_threshold - 1):
-                Telem.water_warned = False
+            if ir['WaterTemp'] <= (water_threshold - 3):
+                if Telem.water_warned:
+                    threading.Thread(target=speech_thread, args=("water temp has fallen to " + str(round(temperature(ir['WaterTemp'], "number"))) + " degrees",)).start()
+                    Telem.water_warned = False
         if Telem.water_trigger and not Telem.water_warned:
             threading.Thread(target=speech_thread, args=("water temp has risen to " + str(round(temperature(ir['WaterTemp'], "number"))) + " degrees",)).start()
             Telem.water_warned = True
@@ -1132,7 +1142,6 @@ def init():
         except urllib.error.URLError as error:
             log("Update checking failed, cannot connect to update server! " + str(error))
             log(State.sep_1)
-
     try:
         # Check connection and start (or not) loop
         while True:

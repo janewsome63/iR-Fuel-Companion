@@ -1,3 +1,4 @@
+import _tkinter
 import configparser
 import PySimpleGUI as Sg
 import subprocess
@@ -124,6 +125,7 @@ def event(name, value):
 
 def main(version):
     Sg.theme('LightGray1')
+    right_click_menu = ['', ['Copy', 'Select All']]
     fueling = [
         [Sg.Push(), Sg.Text(text="Fueling:"), Sg.Push()],
         [Sg.Checkbox('Auto Fuel', default=Vars.checkboxes["auto_fuel"], key='check-auto_fuel', enable_events=True)],
@@ -174,7 +176,7 @@ def main(version):
         [Sg.Column(github, justification='left'), Sg.Push(), Sg.Column(open_logs, justification='right')],
     ]
     logging_layout = [
-        [Sg.Multiline(autoscroll=True, reroute_stdout=True, echo_stdout_stderr=True, enter_submits=False, key='-Log-', expand_x=True, expand_y=True, pad=(5, 5), font='Fixedsys')],
+        [Sg.Multiline(autoscroll=True, reroute_stdout=True, reroute_stderr=True, echo_stdout_stderr=True, enter_submits=False, enable_events=False, disabled=True, right_click_menu=right_click_menu, key='-Log-', expand_x=True, expand_y=True, pad=(5, 5), font='Fixedsys')],
     ]
     layout = []
     layout += [
@@ -184,12 +186,27 @@ def main(version):
     Vars.window = window
     window.set_min_size((200, 200))
 
+    log:Sg.Multiline = window['-Log-']
+
     while True:
         trigger, values = window.Read()
         if trigger == Sg.WIN_CLOSED:
             break
-        split = trigger.split('-')
-        option = split[1]
+        if trigger in right_click_menu[1]:
+            if trigger == "Copy":
+                try:
+                    text = log.Widget.selection_get()
+                    window.TKroot.clipboard_clear()
+                    window.TKroot.clipboard_append(text)
+                except _tkinter.TclError:
+                    pass
+            if trigger == "Select All":
+                log.Widget.selection_clear()
+                log.Widget.tag_add('sel', '1.0', 'end')
+            option = "None"
+        else:
+            split = trigger.split('-')
+            option = split[1]
         if "spin" in trigger:
             Vars.spin[option] = values[trigger]
         elif "combo" in trigger:
