@@ -21,7 +21,7 @@ class Vars:
         "auto_fuel_type": "Average",
     }
     input = {
-        "fixed_usage": 0.123,
+        "fixed_usage": 0.0,
         "oil_threshold": 0,
         "water_threshold": 0,
     }
@@ -176,17 +176,18 @@ def main(version):
         [Sg.Column(github, justification='left'), Sg.Push(), Sg.Column(open_logs, justification='right')],
     ]
     logging_layout = [
-        [Sg.Multiline(autoscroll=True, reroute_stdout=True, reroute_stderr=True, echo_stdout_stderr=True, enter_submits=False, enable_events=False, disabled=True, right_click_menu=right_click_menu, key='-Log-', expand_x=True, expand_y=True, pad=(5, 5), font='Fixedsys')],
+        [Sg.Multiline(autoscroll=True, reroute_stdout=True, reroute_stderr=True, echo_stdout_stderr=True, enter_submits=False, enable_events=False, disabled=True, right_click_menu=right_click_menu, key='multiline-log', expand_x=True, expand_y=True,
+                      pad=(5, 5), font='Fixedsys')],
     ]
     layout = []
     layout += [
-        [Sg.TabGroup([[Sg.Tab('Logging', logging_layout), Sg.Tab('Settings', settings_layout)]], key='-Tabs-', expand_x=True, expand_y=True)],
+        [Sg.TabGroup([[Sg.Tab('Logging', logging_layout), Sg.Tab('Settings', settings_layout)]], key='tabgroup-tabs', expand_x=True, expand_y=True)],
     ]
     window = Sg.Window('iR Fuel Companion ' + version, layout, icon='icon.ico', size=(1165, 500), resizable=True, finalize=True)
     Vars.window = window
     window.set_min_size((200, 200))
 
-    log:Sg.Multiline = window['-Log-']
+    log: Sg.Multiline = window['multiline-log']
 
     while True:
         trigger, values = window.Read()
@@ -225,6 +226,7 @@ def main(version):
             window[trigger].update(Vars.checkboxes[option])
         elif "bind" in trigger:
             if Binds.names[option] == "<-Recording->":
+                Binds.keys[option] = ""
                 Binds.binding = False
                 Binds.names[option] = "Bind"
                 Binds.recording[option] = False
