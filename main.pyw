@@ -14,224 +14,72 @@ import gui
 import keybind
 
 
-# Variables and lists
-# Global
+# Random variables and functions for main thread
 class State:
-    connected = False
+    count = 1
+    ir_connected = False
+    no_connection = "no eye racing connection"
+    laps_completed = 0
+    metric = True
+    log_sep = True
+    reset_laps = 0
+    sep_1 = "=" * 138
+    sep_2 = "-" * 138
+    spectator = False
+    spotter = False
+    surface = -1
+    trigger = False
+    version = "v0.2.5"
 
 
-# Static dictionaries
-lang = {
-    "no_connection": "no eye racing connection",
-    "separator_a": "=" * 138,
-    "separator_b": "-" * 138,
-    "version": "v1.0.0",
-}
-
-# Mallable dictionaries
-status = {}
-trigger = {}
-eco = {}
-level = {}
-stops = {}
-window = {}
-usage = {}
-stint = {}
-lap = {}
-weather = {}
-car = {}
-session = {}
-misc = {}
-
-
-# Set dictionary values on connect
-def init_vars():
-    State.connected = True
-
-    # Car telem
-    car['engine_hex'] = ir['EngineWarnings']
-    car['engine_list'] = []
-    car['location'] = ir['PlayerTrackSurface']
-    car['name'] = drv_info("Drivers", "CarPath")
-    car['oil_warn_value'] = 999.0
-    car['temp_oil'] = ir['OilTemp']
-    car['temp_oil_prev'] = 0.0
-    car['temp_water'] = ir['WaterTemp']
-    car['temp_water_prev'] = 0.0
-    car['water_warn_value'] = 999.0
-
-    # Fuel economy
-    eco['avg'] = 0.0
-    eco['high'] = 0.0
-    eco['low'] = 0.0
-    eco['max'] = 0.0
-    eco['prev'] = 0.0
-    eco['req'] = 0.0
-
-    # Lap
-    lap['completed'] = ir['LapCompleted']
-    lap['dist'] = ir['LapDist']
-    lap['dist_prev'] = 0.0
-    lap['next'] = ir['LapCompleted'] + 1
-    lap['pit'] = 0
-    lap['remaining'] = ir['SessionLapsRemain'] + 1
-    lap['time_avg'] = 0.0
-    lap['time_prev'] = ir['LapLastLapTime']
-    lap['times'] = []
-    lap['total'] = ir['SessionLapsTotal']
-
-    # Fuel levels
-    level['current'] = ir['FuelLevel']
-    level['current_pct'] = ir['FuelLevelPct']
-    level['current_prev'] = 0.0
-    level['full'] = drv_info("DriverCarFuelMaxLtr", 0)
-    level['full_pct'] = drv_info("DriverCarMaxFuelPct", 0)
-    level['pit'] = 0.0
-    level['prev'] = 0.0
-    level['req_avg'] = 0.0
-    level['req_high'] = 0.0
-    level['req_low'] = 0.0
-    level['req_max'] = 0.0
-    level['req_prev'] = 0.0
-
-    # Misc
-    misc['date'] = weekend_options("Date", 0)
-    misc['idx'] = 0
-    misc['incidents'] = ir['PlayerCarMyIncidentCount']
-    misc['incidents_prev'] = ir['PlayerCarMyIncidentCount']
-    misc['rubber'] = session_info("SessionTrackRubberState")
-    misc['timer_start'] = time.perf_counter()
-    misc['time'] = weekend_options("TimeOfDay", 0) + weekend_options("TimeOfDay", 1)
-    track_length = ir['WeekendInfo']['TrackLength']
-    track_length_spl = track_length.split()
-    misc['track_length'] = float(track_length_spl[0])
-    misc['track_name'] = weekend_info("TrackName", 0)
-
-    # Session
-    session['flag_hex'] = ir['SessionFlags']
-    session['flag_list'] = []
-    session['name'] = session_info("SessionType")
-    session['state'] = ir['SessionState']
-    session['time'] = ir['SessionTime']
-    session['time_remaining'] = ir['SessionTimeRemain']
-    session['time_total'] = ir['SessionTimeTotal']
-
-    # Statuses
-    status['active_reset'] = False
-    status['driving'] = False
-    status['imperial'] = False
-    status['incident'] = False
-    status['oil_temp_warning'] = False
-    status['pitting'] = False
-    status['practice'] = False
-    status['separator'] = True
-    # status['spectator'] = False
-    # status['spotter'] = False
-    status['timed'] = False
-    status['towing'] = False
-    status['water_temp_warning'] = False
-
-    # Stint
-    stint['avg'] = 0.0
-    stint['completed'] = 0
-    stint['eco'] = 0.0
-    stint['remaining_avg'] = 0.0
-    stint['remaining_high'] = 0.0
-    stint['remaining_low'] = 0.0
-    stint['remaining_max'] = 0.0
-    stint['remaining_prev'] = 0.0
-    stint['time_avg'] = 0.0
-    stint['times'] = []
-    stint['used'] = 0.0
-
-    # Stops required
-    stops['avg'] = 0
-    stops['high'] = 0
-    stops['low'] = 0
-    stops['max'] = 0
-    stops['prev'] = 0
-
-    # Triggers
-    trigger['active_reset'] = False
-    trigger['air'] = "None"
-    trigger['driving'] = False
-    trigger['init'] = True
-    trigger['lap'] = False
-    trigger['oil'] = False
-    trigger['pitting'] = False
-    trigger['car_reset'] = False
-    trigger['session'] = "None"
-    trigger['towing'] = False
-    trigger['track'] = "None"
-    trigger['water'] = False
-
-    # Fuel usage
-    usage['avg'] = 0.0
-    usage['high'] = 0.0
-    usage['low'] = 0.0
-    usage['list'] = []
-    usage['max'] = 0.0
-    usage['prev'] = 0.0
-    usage['req'] = 0.0
-
-    # Weather
-    weather['density'] = ir['AirDensity']
-    weather['humidity'] = ir['RelativeHumidity']
-    weather['pressure'] = ir['AirPressure']
-    weather['sky'] = "N/A"
-    weather['temp_air'] = ir['AirTemp']
-    weather['temp_air_prev'] = ir['AirTemp']
-    weather['temp_track'] = ir['TrackTempCrew']
-    weather['temp_track_prev'] = ir['TrackTempCrew']
-    weather['wind_dir'] = "N/A"
-    weather['wind_vel'] = ir['WindVel']
-
-    # Fuel window
-    window['avg'] = 0
-    window['high'] = 0
-    window['low'] = 0
-    window['max'] = 0
-    window['prev'] = 0
+# Fuel variables
+class Fuel:
+    eco = 0.0
+    eco_req = 0.0
+    laps_left = 0.0
+    last_level = 0.0
+    last_pit_level = 0.0
+    level = 0.0
+    level_full = 0.0
+    level_req = 0.0
+    level_req_avg = 0.0
+    level_req_max = 0.0
+    level_req_fixed = 0.0
+    max_pct = 0.0
+    pct = 0.0
+    stint_eco = 0.0
+    stint_used = 0.0
+    stint_used_avg = 0.0
+    stops = 0
+    stops_avg = 0
+    stops_max = 0
+    stops_fixed = 0
+    used_lap = 0.0
+    used_lap_avg = 0.0
+    used_lap_max = 0.0
+    used_lap_fixed = 0.0
+    used_lap_list = []
+    used_lap_req = 0.0
 
 
-# Variable actions to run on disconnect
-def deinit_vars():
-    State.connected = False
-    status['spotter'] = False
-
-
-# Specific variable actions
-def reset_vars(name):
-    if "car" in name:
-        if gui.Vars.input['practice_laps'] != 0:
-            lap['times'] = []
-            usage['list'] = []
-        misc['timer_start'] = time.perf_counter()
-        trigger['oil'] = False
-        trigger['water'] = False
-    if "lap" in name:
-        lap['dist'] = ir['LapDist']
-        lap['dist_prev'] = ir['LapDist']
-        status['active_reset'] = False
-    if "session" in name:
-        lap['completed'] = 0
-        lap['next'] = ir['LapCompleted'] + 1
-        lap['pit'] = 0
-        lap['remaining'] = ir['SessionLapsRemain'] + 1
-        lap['times'] = []
-        lap['total'] = ir['SessionLapsTotal']
-        misc['date'] = weekend_options("Date", 0)
-        misc['rubber'] = session_info("SessionTrackRubberState")
-        misc['time'] = weekend_options("TimeOfDay", 0) + weekend_options("TimeOfDay", 1)
-        session['name'] = session_info("SessionType")
-        usage['list'] = []
-        weather['temp_air_prev'] = ir['AirTemp']
-        weather['temp_track_prev'] = ir['TrackTempCrew']
-    if "stint" in name:
-        if trigger['car_reset'] and gui.Vars.input['practice_laps'] != 0:
-            lap['completed'] = 0
-        stint['completed'] = 0
-        stint['times'] = []
+# Other iR telemetry variables
+class Telem:
+    driver_idx = 0
+    flag = 0x00000000
+    flag_list = []
+    engine = 0x00000000
+    engine_list = []
+    lap_distance = 0
+    lap_time_list = []
+    laps_completed = 0
+    laps_remaining = 0
+    last_ttemp = 0.0
+    last_atemp = 0.0
+    location = 1
+    oil_warned = False
+    session = 0
+    stint_laps = 0
+    water_warned = False
 
 
 # Unit Conversion Ref:
@@ -246,79 +94,88 @@ def reset_vars(name):
 #   kg/m^3 * 0.062427960576145 = lb/ft^3
 #   km/l * 2.352145833 = mpg
 
-# Units functions
+# Unit related functions
+
+# Return game unit type
+def detect_units():
+    if ir['DisplayUnits'] == 1:
+        State.metric = True
+    elif ir['DisplayUnits'] == 0:
+        State.metric = False
+
+
 # Return converted temperature
 def temperature(value, style):
-    if status['imperial']:
-        if style == "string":
-            return str(round((value * 1.8) + 32, 2)) + "f"
-        if style == "number":
-            return round((value * 1.8) + 32, 2)
-    else:
+    if State.metric:
         if style == "string":
             return str(round(value, 2)) + "c"
         elif style == "number":
             return round(value, 2)
+    else:
+        if style == "string":
+            return str(round((value * 1.8) + 32, 2)) + "f"
+        if style == "number":
+            return round((value * 1.8) + 32, 2)
 
 
 # Return converted speed
 def speed(value):
-    if status['imperial']:
-        return str(round(value * 2.2369362920544025, 1)) + "mph"
-    else:
+    if State.metric:
         return str(round(value * 3.6, 1)) + "kph"
+    else:
+        return str(round(value * 2.2369362920544025, 1)) + "mph"
 
 
 # Return converted pressure
 def pressure(value):
-    if status['imperial']:
-        return str(round(value, 1)) + "hg"
-    else:
+    if State.metric:
         return str(round(value * 3.38639, 1)) + "kpa"
+    else:
+        return str(round(value, 1)) + "hg"
 
 
 # Return converted density
 def density(value):
-    if status['imperial']:
-        return str(round(value * 0.062427960576145, 2)) + "lb/ft^3"
-    else:
+    if State.metric:
         return str(round(value, 2)) + "kg/m^3"
+    else:
+        return str(round(value * 0.062427960576145, 2)) + "lb/ft^3"
 
 
 # Return converted distance
 def distance(value, magnitude):
-    if status['imperial']:
-        if magnitude == "m":
-            return str(round(value * 0.000621371, 2)) + "mi"
-        elif magnitude == "km":
-            return str(round(value * 0.621371, 2)) + "mi"
-    else:
+    if State.metric:
         if magnitude == "m":
             return str(round(value * 0.001, 2)) + "km"
         elif magnitude == "km":
             return str(round(value, 2)) + "km"
+    else:
+        if magnitude == "m":
+            return str(round(value * 0.000621371, 2)) + "mi"
+        elif magnitude == "km":
+            return str(round(value * 0.621371, 2)) + "mi"
 
 
 # Return converted volume
 def volume(value, suffix):
-    if status['imperial']:
-        if suffix == "short":
-            return str(round(value * 0.264172, 3)) + "gal"
-        elif suffix == "long":
-            return str(round(value * 0.264172, 3)) + " gallons"
-    else:
+    if State.metric:
         if suffix == "short":
             return str(round(value, 3)) + "l"
         elif suffix == "long":
             return str(round(value, 3)) + " liters"
+    else:
+        if suffix == "short":
+            return str(round(value * 0.264172, 3)) + "gal"
+        elif suffix == "long":
+            return str(round(value * 0.264172, 3)) + " gallons"
 
 
 # Return converted economy
 def economy(value):
-    if status['imperial']:
-        return str(round(value * 2.352145833, 2)) + "mpg"
-    else:
+    if State.metric:
         return str(round(value, 2)) + "km/l"
+    elif not State.metric:
+        return str(round(value * 2.352145833, 2)) + "mpg"
 
 
 # Return formatted percentage
@@ -331,10 +188,32 @@ def duration(value):
     return str(round(value, 3)) + "s"
 
 
-# Controls functions
-# Save binding
-def bind_set(bind, event):
+# Return a cardinal wind direction
+def wind():
+    wind_deg = ir['WindDir'] * 57.295779513
+    if wind_deg >= 337.5 or wind_deg <= 22.5:
+        return "N"
+    elif 22.5 < wind_deg < 67.5:
+        return "NE"
+    elif 67.5 <= wind_deg <= 112.5:
+        return "E"
+    elif 112.5 < wind_deg < 157.5:
+        return "SE"
+    elif 157.5 <= wind_deg <= 202.5:
+        return "S"
+    elif 202.5 < wind_deg < 247.5:
+        return "SW"
+    elif 247.5 <= wind_deg <= 292.5:
+        return "W"
+    elif 292.5 < wind_deg < 337.5:
+        return "NW"
+    else:
+        return "N/A"
+
+
+def controls_set(bind, event):
     if keybind.Vars.button == "esc":
+        getattr(gui.Binds, "keys")[bind] = ""
         gui.event(event, "")
     elif keybind.Vars.button != "None":
         getattr(gui.Binds, "keys")[bind] = keybind.Vars.button
@@ -342,43 +221,6 @@ def bind_set(bind, event):
         gui.event(event, "")
 
 
-# Binding listening thread
-def binding_thread():
-    while True:
-        if not gui.Binds.binding:
-            time.sleep(1 / 2)
-        else:
-            while gui.Binds.binding:
-                if gui.Binds.recording["auto_fuel"]:
-                    bind_set('auto_fuel', 'bind-auto_fuel')
-                elif gui.Binds.recording["auto_fuel_cycle"]:
-                    bind_set('auto_fuel_cycle', 'bind-auto_fuel_cycle')
-                elif gui.Binds.recording["auto_fuel_average"]:
-                    bind_set('auto_fuel_average', 'bind-auto_fuel_average')
-                elif gui.Binds.recording["auto_fuel_max"]:
-                    bind_set('auto_fuel_max', 'bind-auto_fuel_max')
-                elif gui.Binds.recording["auto_fuel_fixed"]:
-                    bind_set('auto_fuel_fixed', 'bind-auto_fuel_fixed')
-                elif gui.Binds.recording["set_required"]:
-                    bind_set('set_required', 'bind-set_required')
-                elif gui.Binds.recording["tts_fuel"]:
-                    bind_set('tts_fuel', 'bind-tts_fuel')
-                elif gui.Binds.recording["txt_fuel"]:
-                    bind_set('txt_fuel', 'bind-txt_fuel')
-                elif gui.Binds.recording["temp_updates"]:
-                    bind_set('temp_updates', 'bind-temp_updates')
-                elif gui.Binds.recording["temp_report"]:
-                    bind_set('temp_report', 'bind-temp_report')
-                elif gui.Binds.recording["previous_usage"]:
-                    bind_set('previous_usage', 'bind-previous_usage')
-                elif gui.Binds.recording["required_usage"]:
-                    bind_set('required_usage', 'bind-required_usage')
-                elif gui.Binds.recording["auto_fuel_info"]:
-                    bind_set('auto_fuel_info', 'bind-auto_fuel_info')
-                time.sleep(1 / 20)
-
-
-# Save binding name
 def controls_name(bind):
     button = getattr(gui.Binds, "keys")[bind]
     if not isinstance(button, dict):
@@ -392,15 +234,13 @@ def controls_name(bind):
         #     getattr(gui.Binds, "names")[bind] = "Joy " + str(button['instance_id']) + " Button " + str(button['button']))
 
 
-# Control listening thread
 def controls_thread():
     while True:
         # Pause after binding to prevent immediate trigger
         while gui.Binds.pause_count > 0:
             gui.Binds.pause_count = gui.Binds.pause_count - 1
             time.sleep(0.5)
-
-        # Toggle auto fuel
+        # Actions for all triggered keybinds
         if gui.Binds.keys["auto_fuel"] == keybind.Vars.button:
             time.sleep(0.25)
             if gui.Vars.checkboxes["auto_fuel"]:
@@ -410,8 +250,6 @@ def controls_thread():
                 gui.event('check-auto_fuel', 1)
                 threading.Thread(target=speech_thread, args=("auto fuel enabled",)).start()
             time.sleep(0.75)
-
-        # Cycle auto fuel type
         if gui.Binds.keys["auto_fuel_cycle"] == keybind.Vars.button:
             time.sleep(0.25)
             if gui.Vars.combo["auto_fuel_type"] == "Fixed":
@@ -424,49 +262,49 @@ def controls_thread():
                 gui.event('combo-auto_fuel_type', "Fixed")
                 threading.Thread(target=speech_thread, args=("using fixed usage for auto fuel",)).start()
             time.sleep(0.75)
-
-        # Set auto fuel to average
         if gui.Binds.keys["auto_fuel_average"] == keybind.Vars.button:
             time.sleep(0.25)
             gui.event('combo-auto_fuel_type', "Average")
             threading.Thread(target=speech_thread, args=("using average usage for auto fuel",)).start()
             time.sleep(0.75)
-
-        # Set auto fuel to max
         if gui.Binds.keys["auto_fuel_max"] == keybind.Vars.button:
             time.sleep(0.25)
             gui.event('combo-auto_fuel_type', "Max")
             threading.Thread(target=speech_thread, args=("using max usage for auto fuel",)).start()
             time.sleep(0.75)
-
-        # Set auto fuel to fixed
         if gui.Binds.keys["auto_fuel_fixed"] == keybind.Vars.button:
             time.sleep(0.25)
             gui.event('combo-auto_fuel_type', "Fixed")
             threading.Thread(target=speech_thread, args=("using fixed usage for auto fuel",)).start()
             time.sleep(0.75)
-
-        # Set required fuel
         if gui.Binds.keys["set_required"] == keybind.Vars.button:
             time.sleep(0.25)
-            if State.connected:
-                for type in gui.Vars.combo["auto_fuel_type"]:
-                    if (lap['left'] + gui.Vars.spin["extra_laps"]) * usage[type] < level['current']:
-                        add = 0.0
+            if State.ir_connected:
+                if gui.Vars.combo["auto_fuel_type"] == "Average":
+                    if (Telem.laps_remaining + gui.Vars.spin["extra_laps"]) * Fuel.used_lap_avg < ir['FuelLevel']:
+                        fuel_add = 0.0
                     else:
-                        add = level['req_' + type] + (usage[type] * gui.Vars.spin["extra_laps"])
-                    if add + level['prev'] <= level['current']:
-                        ir.pit_command(11)
-                    if add + level['prev'] > level['current']:
-                        ir.pit_command(2, int(round(add, 0)))
+                        fuel_add = Fuel.level_req_avg + (Fuel.used_lap_avg * gui.Vars.spin["extra_laps"])
+                elif gui.Vars.combo["auto_fuel_type"] == "Max":
+                    if (Telem.laps_remaining + gui.Vars.spin["extra_laps"]) * Fuel.used_lap_max < ir['FuelLevel']:
+                        fuel_add = 0.0
+                    else:
+                        fuel_add = Fuel.level_req_max + (Fuel.used_lap_max * gui.Vars.spin["extra_laps"])
+                else:
+                    if (Telem.laps_remaining + gui.Vars.spin["extra_laps"]) * Fuel.used_lap_fixed < ir['FuelLevel']:
+                        fuel_add = 0.0
+                    else:
+                        fuel_add = Fuel.level_req_fixed + (Fuel.used_lap_fixed * gui.Vars.spin["extra_laps"])
+                if fuel_add + Fuel.last_level <= ir['FuelLevel']:
+                    ir.pit_command(11)
+                if fuel_add + Fuel.last_level > ir['FuelLevel']:
+                    ir.pit_command(2, int(round(fuel_add, 0)))
                 speech = threading.Thread(target=speech_thread, args=("fuel set",))
                 speech.start()
             else:
-                speech = threading.Thread(target=speech_thread, args=(lang['no_connection'],))
+                speech = threading.Thread(target=speech_thread, args=(State.no_connection,))
                 speech.start()
             time.sleep(0.75)
-
-        # Toggle tts fuel updates
         if gui.Binds.keys["tts_fuel"] == keybind.Vars.button:
             time.sleep(0.25)
             if gui.Vars.checkboxes["tts_fuel"]:
@@ -476,8 +314,6 @@ def controls_thread():
                 gui.event('check-tts_fuel', 1)
                 threading.Thread(target=speech_thread, args=("speech fuel updates enabled",)).start()
             time.sleep(0.75)
-
-        # Toggle print fuel updates
         if gui.Binds.keys["txt_fuel"] == keybind.Vars.button:
             time.sleep(0.25)
             if gui.Vars.checkboxes["txt_fuel"]:
@@ -487,8 +323,6 @@ def controls_thread():
                 gui.event('check-txt_fuel', 1)
                 threading.Thread(target=speech_thread, args=("text fuel updates enabled",)).start()
             time.sleep(0.75)
-
-        # Toggle temperature updates
         if gui.Binds.keys["temp_updates"] == keybind.Vars.button:
             time.sleep(0.25)
             if gui.Vars.checkboxes["temp_updates"]:
@@ -498,231 +332,78 @@ def controls_thread():
                 gui.event('check-temp_updates', 1)
                 threading.Thread(target=speech_thread, args=("temperature updates enabled",)).start()
             time.sleep(0.75)
-
-        # Report current temperatures
         if gui.Binds.keys["temp_report"] == keybind.Vars.button:
             time.sleep(0.25)
-            if State.connected:
+            if State.ir_connected:
                 threading.Thread(target=speech_thread, args=("air temp is " + str(round(temperature(ir['AirTemp'], "number"))) + " and track temp is " + str(round(temperature(ir['TrackTempCrew'], "number"))),)).start()
             else:
-                threading.Thread(target=speech_thread, args=(lang['no_connection'],)).start()
+                threading.Thread(target=speech_thread, args=(State.no_connection,)).start()
             time.sleep(0.75)
-
-        # Print previous lap usage info
         if gui.Binds.keys["previous_usage"] == keybind.Vars.button:
             time.sleep(0.25)
-            if State.connected:
-                txt_prev_lap()
+            if State.ir_connected:
+                ir.chat_command(1)
+                time.sleep(0.05)
+                keyboard.write("## Previous lap - " + str(round(Fuel.laps_left, 2)) + " laps, " + volume(Fuel.used_lap, "short") + ", " + economy(Fuel.eco) + ", " + volume(Fuel.level_req, "short") + "(" + str(Fuel.stops) + ") extra ##")
+                time.sleep(0.05)
+                keyboard.send('enter')
+                time.sleep(0.05)
+                ir.chat_command(3)
             else:
-                threading.Thread(target=speech_thread, args=(lang['no_connection'],)).start()
+                threading.Thread(target=speech_thread, args=(State.no_connection,)).start()
             time.sleep(0.75)
-
-        # Print required usage info
         if gui.Binds.keys["required_usage"] == keybind.Vars.button:
             time.sleep(0.25)
-            if State.connected:
-                if gui.Vars.input['practice_laps'] == 0 and status['practice']:
-                    ir.chat_command(1)
-                    time.sleep(0.05)
-                    keyboard.write("## Required Info - " + str(lap['remaining']) + " laps est ##")
-                    time.sleep(0.05)
-                    keyboard.send('enter')
-                    time.sleep(0.05)
-
-                    if gui.Vars.input['usage_high'] > 0.0:
-                        ir.chat_command(1)
-                        time.sleep(0.05)
-                        keyboard.write("## High - " + str(round(stint['remaining_high'], 1)) + " laps, " + volume(usage['high'], "short") + ", " + economy(eco['high']) + " ##")
-                        time.sleep(0.05)
-                        keyboard.send('enter')
-                        time.sleep(0.05)
-
-                    if gui.Vars.input['usage_low'] > 0.0:
-                        ir.chat_command(1)
-                        time.sleep(0.05)
-                        keyboard.write("## Low - " + str(round(stint['remaining_low'], 1)) + " laps, " + volume(usage['low'], "short") + ", " + economy(eco['low']) + " ##")
-                        time.sleep(0.05)
-                        keyboard.send('enter')
-                        time.sleep(0.05)
+            if State.ir_connected:
+                ir.chat_command(1)
+                time.sleep(0.05)
+                if gui.Vars.input["fixed_usage"] > 0.0:
+                    keyboard.write("## Required - " + str(Telem.laps_remaining) + " laps, " + volume(Fuel.used_lap_req, "short") + ", " + economy(Fuel.eco_req) + ", " + volume(Fuel.level_req_avg, "short") + "(" + str(Fuel.stops_avg) + ") avg, " +
+                                   volume(Fuel.level_req_max, "short") + "(" + str(Fuel.stops_max) + ") max, " + volume(Fuel.level_req_fixed, "short") + "(" + str(Fuel.stops_fixed) + ") fixed ##")
                 else:
-                    ir.chat_command(1)
-                    time.sleep(0.05)
-                    keyboard.write("## Required Info - " + str(lap['remaining']) + " laps, " + volume(usage['req'], "short") + ", " + economy(eco['req']) + " ##")
-                    time.sleep(0.05)
-                    keyboard.send('enter')
-                    time.sleep(0.05)
-
-                    if gui.Vars.input['usage_high'] > 0.0:
-                        ir.chat_command(1)
-                        time.sleep(0.05)
-                        keyboard.write("## High - " + str(round(stint['remaining_high'], 1)) + " laps, " + volume(usage['high'], "short") + ", " + economy(eco['high']) + ", " + volume(level['req_high'], "short") + " (" + str(stops['high']) + ", " + str(window['high']) + ") ##")
-                        time.sleep(0.05)
-                        keyboard.send('enter')
-                        time.sleep(0.05)
-
-                    if gui.Vars.input['usage_low'] > 0.0:
-                        ir.chat_command(1)
-                        time.sleep(0.05)
-                        keyboard.write("## Low - " + str(round(stint['remaining_low'], 1)) + " laps, " + volume(usage['low'], "short") + ", " + economy(eco['low']) + ", " + volume(level['req_low'], "short") + " (" + str(stops['low']) + ", " + str(window['low']) + ") ##")
-                        time.sleep(0.05)
-                        keyboard.send('enter')
-                        time.sleep(0.05)
+                    keyboard.write("## Required - " + str(Telem.laps_remaining) + " laps, " + volume(Fuel.used_lap_req, "short") + ", " + economy(Fuel.eco_req) + ", " + volume(Fuel.level_req_avg, "short") + "(" + str(Fuel.stops_avg) + ") avg, " +
+                                   volume(Fuel.level_req_max, "short") + "(" + str(Fuel.stops_max) + ") max ##")
+                time.sleep(0.05)
+                keyboard.send('enter')
+                time.sleep(0.05)
                 ir.chat_command(3)
             else:
-                threading.Thread(target=speech_thread, args=(lang['no_connection'],)).start()
-            time.sleep(0.75)
-
-        # Print auto fuel info
-        if gui.Binds.keys['auto_fuel_info'] == keybind.Vars.button:
-            time.sleep(0.25)
-            if State.connected:
-                if gui.Vars.input['practice_laps'] == 0 and status['practice']:
-                    ir.chat_command(1)
-                    time.sleep(0.05)
-                    keyboard.write("## Auto Fueling Info - No type active ##")
-                    time.sleep(0.05)
-                    keyboard.send('enter')
-                    time.sleep(0.05)
-
-                    ir.chat_command(1)
-                    time.sleep(0.05)
-                    keyboard.write("## Avg - " + str(round(stint['remaining_avg'], 1)) + " laps, " + volume(usage['avg'], "short") + ", " + economy(eco['avg']) + " ##")
-                    time.sleep(0.05)
-                    keyboard.send('enter')
-                    time.sleep(0.05)
-
-                    ir.chat_command(1)
-                    time.sleep(0.05)
-                    keyboard.write("## Max - " + str(round(stint['remaining_max'], 1)) + " laps, " + volume(usage['max'], "short") + ", " + economy(eco['max']) + " ##")
-                    time.sleep(0.05)
-                    keyboard.send('enter')
-                    time.sleep(0.05)
-                else:
-                    current_type = "max"
-                    auto_fuel_types = (("Average", "avg"), ("Max", "max"), ("Fixed", "high"))
-                    for type in auto_fuel_types:
-                        if gui.Vars.combo['auto_fuel_type'] == type[0]:
-                            current_type = type[1]
-
-                    if level['req_' + current_type] > level['full']:
-                        fuel_add = level['full']
-                    else:
-                        fuel_add = level['req_' + current_type]
-
-                    ir.chat_command(1)
-                    time.sleep(0.05)
-                    keyboard.write("## Auto Fueling Info - " + gui.Vars.combo['auto_fuel_type'] + " type active, " + volume(fuel_add, "short") + " will be added ##")
-                    time.sleep(0.05)
-                    keyboard.send('enter')
-                    time.sleep(0.05)
-
-                    ir.chat_command(1)
-                    time.sleep(0.05)
-                    keyboard.write("## Avg - " + str(round(stint['remaining_avg'], 1)) + " laps, " + volume(usage['avg'], "short") + ", " + economy(eco['avg']) + ", " + volume(level['req_avg'], "short") + " (" + str(stops['avg']) + ", " + str(window['avg']) + ") ##")
-                    time.sleep(0.05)
-                    keyboard.send('enter')
-                    time.sleep(0.05)
-
-                    ir.chat_command(1)
-                    time.sleep(0.05)
-                    keyboard.write("## Max - " + str(round(stint['remaining_max'], 1)) + " laps, " + volume(usage['max'], "short") + ", " + economy(eco['max']) + ", " + volume(level['req_max'], "short") + " (" + str(stops['max']) + ", " + str(window['max']) + ") ##")
-                    time.sleep(0.05)
-                    keyboard.send('enter')
-                    time.sleep(0.05)
-                ir.chat_command(3)
-            else:
-                threading.Thread(target=speech_thread, args=(lang['no_connection'],)).start()
+                threading.Thread(target=speech_thread, args=(State.no_connection,)).start()
             time.sleep(0.75)
         time.sleep(1 / 20)
 
 
-# Flag and engine warning thread
-def warnings_thread():
-    flag_hexes = {
-        "checkered": 0x00000001,
-        "white": 0x00000002,
-        "green": 0x00000004,
-        "yellow": 0x00000008,
-        "red": 0x00000010,
-        "blue": 0x00000020,
-        "debris": 0x00000040,
-        "crossed": 0x00000080,
-        "yellow_waving": 0x00000100,
-        "one_lap_to_green": 0x00000200,
-        "green_held": 0x00000400,
-        "ten_to_go": 0x00000800,
-        "five_to_go": 0x00001000,
-        "random_waving": 0x00002000,
-        "caution": 0x00004000,
-        "caution_waving": 0x00008000,
-        "black": 0x00010000,
-        "disqualify": 0x00020000,
-        "serviceable": 0x00040000,
-        "furled": 0x00080000,
-        "repair": 0x00100000,
-        "start_hidden": 0x10000000,
-        "start_ready": 0x20000000,
-        "start_set": 0x40000000,
-        "start_go": 0x80000000,
-    }
-    engine_hexes = {
-        "water_temp_warning": 0x01,
-        "fuel_pressure_warning": 0x02,
-        "oil_pressure_warning": 0x04,
-        "engine_stalled": 0x08,
-        "pit_speed_limiter": 0x10,
-        "rev_limiter_active": 0x20,
-        "oil_temp_warning": 0x40,
-    }
-
-    # Add current flag to list
-    def flag_compare(name):
-        if session['flag_hex'] & flag_hexes[name] == flag_hexes[name]:
-            session['flag_list'].append(name)
-
-    # Add current engine warning to list
-    def engine_compare(name):
-        if car['engine_hex'] & engine_hexes[name] == engine_hexes[name]:
-            car['engine_list'].append(name)
-
-    # Run comparisons
-    while State.connected:
-        session['flag_list'] = []
-        flag_compare("checkered")
-        flag_compare("white")
-        flag_compare("green")
-        flag_compare("yellow")
-        flag_compare("red")
-        flag_compare("blue")
-        flag_compare("debris")
-        flag_compare("crossed")
-        flag_compare("yellow_waving")
-        flag_compare("one_lap_to_green")
-        flag_compare("green_held")
-        flag_compare("ten_to_go")
-        flag_compare("five_to_go")
-        flag_compare("random_waving")
-        flag_compare("caution")
-        flag_compare("caution_waving")
-        flag_compare("black")
-        flag_compare("disqualify")
-        flag_compare("serviceable")
-        flag_compare("furled")
-        flag_compare("repair")
-        flag_compare("start_hidden")
-        flag_compare("start_ready")
-        flag_compare("start_set")
-        flag_compare("start_go")
-
-        car['engine_list'] = []
-        engine_compare("water_temp_warning")
-        engine_compare("fuel_pressure_warning")
-        engine_compare("oil_pressure_warning")
-        engine_compare("engine_stalled")
-        engine_compare("pit_speed_limiter")
-        engine_compare("rev_limiter_active")
-        engine_compare("oil_temp_warning")
-        time.sleep(1)
+def binding_thread():
+    while True:
+        if not gui.Binds.binding:
+            time.sleep(1 / 2)
+        else:
+            while gui.Binds.binding:
+                if gui.Binds.recording["auto_fuel"]:
+                    controls_set('auto_fuel', 'bind-auto_fuel')
+                elif gui.Binds.recording["auto_fuel_cycle"]:
+                    controls_set('auto_fuel_cycle', 'bind-auto_fuel_cycle')
+                elif gui.Binds.recording["auto_fuel_average"]:
+                    controls_set('auto_fuel_average', 'bind-auto_fuel_average')
+                elif gui.Binds.recording["auto_fuel_max"]:
+                    controls_set('auto_fuel_max', 'bind-auto_fuel_max')
+                elif gui.Binds.recording["auto_fuel_fixed"]:
+                    controls_set('auto_fuel_fixed', 'bind-auto_fuel_fixed')
+                elif gui.Binds.recording["set_required"]:
+                    controls_set('set_required', 'bind-set_required')
+                elif gui.Binds.recording["tts_fuel"]:
+                    controls_set('tts_fuel', 'bind-tts_fuel')
+                elif gui.Binds.recording["txt_fuel"]:
+                    controls_set('txt_fuel', 'bind-txt_fuel')
+                elif gui.Binds.recording["temp_updates"]:
+                    controls_set('temp_updates', 'bind-temp_updates')
+                elif gui.Binds.recording["temp_report"]:
+                    controls_set('temp_report', 'bind-temp_report')
+                elif gui.Binds.recording["previous_usage"]:
+                    controls_set('previous_usage', 'bind-previous_usage')
+                elif gui.Binds.recording["required_usage"]:
+                    controls_set('required_usage', 'bind-required_usage')
+                time.sleep(1 / 20)
 
 
 # Read settings.ini
@@ -735,34 +416,26 @@ def read_config():
         gui.Vars.checkboxes["auto_fuel"] = config.getboolean('Fueling', 'auto_fuel')
     if config.has_option('Fueling', 'auto_fuel_type'):
         gui.Vars.combo["auto_fuel_type"] = config.get('Fueling', 'auto_fuel_type')
-    if config.has_option('Fueling', 'usage_high'):
-        gui.Vars.input["usage_high"] = config.getfloat('Fueling', 'usage_high')
-    if config.has_option('Fueling', 'usage_low'):
-        gui.Vars.input["usage_low"] = config.getfloat('Fueling', 'usage_low')
+    if config.has_option('Fueling', 'fixed_usage'):
+        gui.Vars.input["fixed_usage"] = config.getfloat('Fueling', 'fixed_usage')
     if config.has_option('Fueling', 'extra_laps'):
         gui.Vars.spin["extra_laps"] = config.getint('Fueling', 'extra_laps')
 
     # Updates
-    if config.has_option('Updates', 'check_updates'):
-        gui.Vars.checkboxes["check_updates"] = config.getboolean('Updates', 'check_updates')
-    if config.has_option('Updates', 'engine_warnings'):
-        gui.Vars.checkboxes["engine_warnings"] = config.getboolean('Updates', 'engine_warnings')
-    if config.has_option('Updates', 'oil_threshold'):
-        gui.Vars.input["oil_threshold"] = config.getint('Updates', 'oil_threshold')
-    if config.has_option('Updates', 'water_threshold'):
-        gui.Vars.input["water_threshold"] = config.getint('Updates', 'water_threshold')
     if config.has_option('Updates', 'tts_fuel'):
         gui.Vars.checkboxes["tts_fuel"] = config.getboolean('Updates', 'tts_fuel')
     if config.has_option('Updates', 'txt_fuel'):
         gui.Vars.checkboxes["txt_fuel"] = config.getboolean('Updates', 'txt_fuel')
     if config.has_option('Updates', 'temp_updates'):
         gui.Vars.checkboxes["temp_updates"] = config.getboolean('Updates', 'temp_updates')
+    if config.has_option('Updates', 'check_updates'):
+        gui.Vars.checkboxes["check_updates"] = config.getboolean('Updates', 'check_updates')
 
     # Practice
     if config.has_option('Practice', 'laps'):
-        gui.Vars.input["practice_laps"] = config.getint('Practice', 'laps')
+        gui.Vars.spin["practice_laps"] = config.getint('Practice', 'laps')
     if config.has_option('Practice', 'fuel_percent'):
-        gui.Vars.input["practice_fuel_percent"] = config.getint('Practice', 'fuel_percent')
+        gui.Vars.spin["practice_fuel_percent"] = config.getint('Practice', 'fuel_percent')
 
     # Controls
     if config.has_option('Controls', 'auto_fuel_toggle'):
@@ -801,416 +474,273 @@ def read_config():
     if config.has_option('Controls', 'required_usage'):
         gui.Binds.keys["required_usage"] = config.get('Controls', 'required_usage')
         controls_name('required_usage')
-    if config.has_option('Controls', 'auto_fuel_info'):
-        gui.Binds.keys["auto_fuel_info"] = config.get('Controls', 'auto_fuel_info')
-        controls_name('auto_fuel_info')
 
 
-# Fuel functions
-# Lap complete calculations
+def speech_thread(text):
+    pythoncom.CoInitialize()
+    speech = wincl.Dispatch("SAPI.SpVoice")
+    speech.Speak(text)
+
+
+# def engine_compare(value, name):
+#     if Telem.engine & value == value:
+#         Telem.engine_list.append(name)
+
+
+# Return driver flag
+def warnings_thread():
+    flag_hex = {
+        "checkered": 0x00000001,
+        "white": 0x00000002,
+        "green": 0x00000004,
+        "yellow": 0x00000008,
+        "red": 0x00000010,
+        "blue": 0x00000020,
+        "debris": 0x00000040,
+        "crossed": 0x00000080,
+        "yellow_waving": 0x00000100,
+        "one_lap_to_green": 0x00000200,
+        "green_held": 0x00000400,
+        "ten_to_go": 0x00000800,
+        "five_to_go": 0x00001000,
+        "random_waving": 0x00002000,
+        "caution": 0x00004000,
+        "caution_waving": 0x00008000,
+        "black": 0x00010000,
+        "disqualify": 0x00020000,
+        "serviceable": 0x00040000,
+        "furled": 0x00080000,
+        "repair": 0x00100000,
+        "start_hidden": 0x10000000,
+        "start_ready": 0x20000000,
+        "start_set": 0x40000000,
+        "start_go": 0x80000000,
+    }
+    engine_hex = {
+        "water_temp_warning": 0x01,
+        "fuel_pressure_warning": 0x02,
+        "oil_pressure_warning": 0x04,
+        "engine_stalled": 0x08,
+        "pit_speed_limiter": 0x10,
+        "rev_limiter_active": 0x20,
+        "oil_temp_warning": 0x40,
+    }
+
+    def flag_compare(name):
+        if Telem.flag & flag_hex[name] == flag_hex[name]:
+            Telem.flag_list.append(name)
+
+    def engine_compare(name):
+        if Telem.engine & engine_hex[name] == engine_hex[name]:
+            Telem.engine_list.append(name)
+
+    while State.ir_connected:
+        Telem.flag_list = []
+        flag_compare("checkered")
+        flag_compare("white")
+        flag_compare("green")
+        flag_compare("yellow")
+        flag_compare("red")
+        flag_compare("blue")
+        flag_compare("debris")
+        flag_compare("crossed")
+        flag_compare("yellow_waving")
+        flag_compare("one_lap_to_green")
+        flag_compare("green_held")
+        flag_compare("ten_to_go")
+        flag_compare("five_to_go")
+        flag_compare("random_waving")
+        flag_compare("caution")
+        flag_compare("caution_waving")
+        flag_compare("black")
+        flag_compare("disqualify")
+        flag_compare("serviceable")
+        flag_compare("furled")
+        flag_compare("repair")
+        flag_compare("start_hidden")
+        flag_compare("start_ready")
+        flag_compare("start_set")
+        flag_compare("start_go")
+
+        Telem.engine_list = []
+        engine_compare("water_temp_warning")
+        engine_compare("fuel_pressure_warning")
+        engine_compare("oil_pressure_warning")
+        engine_compare("engine_stalled")
+        engine_compare("pit_speed_limiter")
+        engine_compare("rev_limiter_active")
+        engine_compare("oil_temp_warning")
+        time.sleep(1)
+
+
+def fuel_calc_init():
+    Fuel.level = ir['FuelLevel']
+    Fuel.level_full = drv_info("DriverCarFuelMaxLtr", 0)
+    Fuel.pct = ir['FuelLevelPct']
+    Fuel.max_pct = drv_info("DriverCarMaxFuelPct", 0)
+
+
+# Fuel calculations
 def fuel_calc():
-    if trigger['lap']:
-        # Current fuel usage
-        if level['current'] < level['prev']:
-            usage['prev'] = level['prev'] - level['current']
-        elif level['current'] >= level['prev']:
-            usage['prev'] = level['pit'] - level['current']
-
-        # Required fuel usage
-        if lap['remaining'] > 0:
-            usage['req'] = level['current'] / lap['remaining']
+    if Telem.laps_remaining > 0:
+        Fuel.used_lap_req = Fuel.level / Telem.laps_remaining
+    else:
+        Fuel.used_lap_req = 0.000
+    Fuel.used_lap = Fuel.last_level - Fuel.level
+    if Fuel.used_lap < 0:
+        Fuel.used_lap = Fuel.last_pit_level - Fuel.level
+    if Fuel.used_lap > 0:
+        Fuel.laps_left = Fuel.level / Fuel.used_lap
+        Fuel.eco = Telem.lap_distance / Fuel.used_lap
+    else:
+        Fuel.laps_left = 999.00
+        Fuel.eco = 99.00
+    Fuel.eco_req = (Telem.lap_distance * Telem.laps_remaining) / Fuel.level
+    if ir['CarIdxPaceLine'][Telem.driver_idx] == -1 and ir['CarIdxTrackSurface'][Telem.driver_idx] == 3 and ir['SessionState'] == 4 and Telem.stint_laps > 1:
+        if len(Fuel.used_lap_list) >= 5:
+            Fuel.used_lap_list.pop(0)
+        Fuel.used_lap_list.append(Fuel.used_lap)
+        if len(Fuel.used_lap_list) > 0:
+            total = 0
+            for used in Fuel.used_lap_list:
+                total = total + used
+            Fuel.used_lap_avg = total / len(Fuel.used_lap_list)
+        if Fuel.used_lap > Fuel.used_lap_max:
+            Fuel.used_lap_max = Fuel.used_lap
+    if gui.Vars.input["fixed_usage"] > 0:
+        if not State.metric:
+            Fuel.used_lap_fixed = gui.Vars.input["fixed_usage"] * 3.78541
         else:
-            usage['req'] = level['current']
+            Fuel.used_lap_fixed = gui.Vars.input["fixed_usage"]
+    Fuel.level_req = ((Telem.laps_remaining * Fuel.used_lap) - Fuel.level)
+    if Fuel.level_req < 0:
+        Fuel.level_req = 0.0
+    Fuel.level_req_avg = ((Telem.laps_remaining * Fuel.used_lap_avg) - Fuel.level)
+    if Fuel.level_req_avg < 0:
+        Fuel.level_req_avg = 0.0
+    Fuel.level_req_max = ((Telem.laps_remaining * Fuel.used_lap_max) - Fuel.level)
+    if Fuel.level_req_max < 0:
+        Fuel.level_req_max = 0.0
+    Fuel.level_req_fixed = ((Telem.laps_remaining * Fuel.used_lap_fixed) - Fuel.level)
+    if Fuel.level_req_fixed < 0:
+        Fuel.level_req_fixed = 0.0
 
-        # Required fuel economy
-        eco['req'] = (misc['track_length'] * lap['remaining']) / level['current']
-
-        # Only do these actions while not in the pits, under caution, on out lap, or on active reset lap
-        if not status['incident'] and not status['caution'] and car['location'] == 3 and session['state'] == 4 and stint['completed'] > 1 and not status['active_reset']:
-
-            # Add current usage to list (and keep previous 5 laps)
-            if len(usage['list']) >= 5:
-                usage['list'].pop(0)
-            usage['list'].append(usage['prev'])
-
-            # Average fuel usage
-            if len(usage['list']) > 0:
-                total = 0
-                for used in usage['list']:
-                    total = total + used
-                usage['avg'] = total / len(usage['list'])
-
-            # Max fuel usage
-            if usage['prev'] > usage['max']:
-                usage['max'] = usage['prev']
-
-        # Fixed fuel usage
-        fixed_types = ['high', 'low']
-        for type in fixed_types:
-            if gui.Vars.input['usage_' + type] > 0:
-                if status['imperial']:
-                    usage[type] = gui.Vars.input['usage_' + type] * 3.78541
-                else:
-                    usage[type] = gui.Vars.input['usage_' + type]
-
-        # Consolidated calculations
-        fuel_types = ['prev', 'avg', 'max', 'high', 'low']
-        for type in fuel_types:
-            # Laps remaining
-            try:
-                stint['remaining_' + type] = level['current'] / usage[type]
-            except ZeroDivisionError:
-                stint['remaining_' + type] = 0
-
-            # Fuel economy
-            try:
-                eco[type] = misc['track_length'] / usage[type]
-            except ZeroDivisionError:
-                eco[type] = 0.0
-
-            # Required fuel levels
-            level['req_' + type] = ((lap['remaining'] * usage[type]) - level['current'])
-            if level['req_' + type] < 0:
-                level['req_' + type] = 0.0
-
-            # Number of pit stops needed
-            stops[type] = round(level['req_' + type] / (level['full']), 1)
-            if stops[type] < 0.0:
-                stops[type] = 0.0
-
-            # Pit window opening laps
-            try:
-                total = lap['total']
-                est_stint = math.floor(level['full'] / usage[type])
-                while True:
-                    if total - est_stint < lap['pit']:
-                        if total > lap['completed'] + stint['remaining_' + type]:
-                            window[type] = total - est_stint
-                        else:
-                            window[type] = total
-                        if window[type] < 0:
-                            window[type] = 0
-                        break
-                    else:
-                        total = total - est_stint
-            except ZeroDivisionError:
-                window[type] = lap['total']
+    Fuel.stops = round(Fuel.level_req / (Fuel.level_full * Fuel.max_pct), 1)
+    if Fuel.stops < 0:
+        Fuel.stops = 0
+    Fuel.stops_avg = round(Fuel.level_req_avg / (Fuel.level_full * Fuel.max_pct), 1)
+    if Fuel.stops_avg < 0:
+        Fuel.stops_avg = 0
+    Fuel.stops_max = round(Fuel.level_req_max / (Fuel.level_full * Fuel.max_pct), 1)
+    if Fuel.stops_max < 0:
+        Fuel.stops_max = 0
+    Fuel.stops_fixed = round(Fuel.level_req_fixed / (Fuel.level_full * Fuel.max_pct), 1)
+    if Fuel.stops_fixed < 0:
+        Fuel.stops_fixed = 0
 
 
-# Thread to control auto fuel
 def fueling_thread():
-    while State.connected:
-        if gui.Vars.checkboxes['auto_fuel'] and gui.Vars.input['practice_laps'] != 0 or gui.Vars.checkboxes['auto_fuel'] and not status['practice']:
-            # Check if driver is pitting, doesn't have a black flag, is not in a qualifying session, and is not a spectator or spotter
-            if status['pitting'] and trigger['pitting'] and "black" not in session['flag_list'] and "Qualify" not in session['name'] and not status['spectator'] and not status['spotter']:
-                # Convert auto fuel type names to their shortened versions
-                type = "max"
-                auto_fuel_types = (("Average", "avg"), ("Max", "max"), ("Fixed", "high"))
-                for i in auto_fuel_types:
-                    if gui.Vars.combo['auto_fuel_type'] == i[0]:
-                        type = i[1]
-                # If fuel to add is less than current fuel level, add nothing
-                if (lap['remaining'] + gui.Vars.spin['extra_laps']) * usage[type] < level['current']:
-                    fuel_add = 0.0
-                # If there is no fuel data or fuel to add is greater than full, add full
-                elif len(usage['list']) < 1 or level['req_' + type] > level['full']:
-                    fuel_add = level['full']
-                # In normal circumstances, add required level and the user defined extra
-                else:
-                    fuel_add = level['req_' + type] + (usage[type] * gui.Vars.spin['extra_laps'])
-                # Send deselect fuel command if fuel to add is less than current fuel level
-                if fuel_add + level['current_prev'] <= level['current']:
-                    ir.pit_command(11)
-                # Send fuel add command (rounding up)
-                elif fuel_add + level['current_prev'] > level['current']:
-                    ir.pit_command(2, int(math.ceil(fuel_add)))
-                    try:
-                        # While recieving service, check levels
-                        while status['pitting']:
-                            # If enough fuel has been added, send deselect fuel command and end loop
-                            if fuel_add + level['current_prev'] <= level['current']:
+    time.sleep(5)
+    status_prev = "pitting"
+    while State.ir_connected:
+        if gui.Vars.checkboxes["auto_fuel"] and "Qualify" not in session_info("SessionType") and not State.spectator and not State.spotter:
+            if "black" not in Telem.flag_list:
+                flag_chk = True
+            else:
+                flag_chk = False
+            if ir['CarIdxTrackSurface'][Telem.driver_idx] == 1:
+                status = "pitting"
+            else:
+                status = "driving"
+            if status_prev != status:
+                if status == "pitting" and flag_chk and ir['OilTemp'] != 77.0:
+                    if gui.Vars.combo["auto_fuel_type"] == "Average":
+                        if (Telem.laps_remaining + gui.Vars.spin["extra_laps"]) * Fuel.used_lap_avg < ir['FuelLevel']:
+                            fuel_add = 0.0
+                        else:
+                            fuel_add = Fuel.level_req_avg + (Fuel.used_lap_avg * gui.Vars.spin["extra_laps"])
+                    elif gui.Vars.combo["auto_fuel_type"] == "Max":
+                        if (Telem.laps_remaining + gui.Vars.spin["extra_laps"]) * Fuel.used_lap_max < ir['FuelLevel']:
+                            fuel_add = 0.0
+                        else:
+                            fuel_add = Fuel.level_req_max + (Fuel.used_lap_max * gui.Vars.spin["extra_laps"])
+                    else:
+                        if (Telem.laps_remaining + gui.Vars.spin["extra_laps"]) * Fuel.used_lap_fixed < ir['FuelLevel']:
+                            fuel_add = 0.0
+                        else:
+                            fuel_add = Fuel.level_req_fixed + (Fuel.used_lap_fixed * gui.Vars.spin["extra_laps"])
+                    if len(Fuel.used_lap_list) < 1 or fuel_add > Fuel.level_full:
+                        fuel_add = Fuel.level_full
+                    if fuel_add + Fuel.last_level <= ir['FuelLevel']:
+                        ir.pit_command(11)
+                    elif fuel_add + Fuel.last_level > ir['FuelLevel']:
+                        ir.pit_command(2, int(round(fuel_add, 0)))
+                        while ir['CarIdxTrackSurface'][Telem.driver_idx] == 1:
+                            if fuel_add + Fuel.last_level <= ir['FuelLevel']:
                                 ir.pit_command(11)
                                 break
-                            # If current fuel level is full, end loop
-                            elif round(level['current'], 4) == level['full']:
+                            elif ir['FuelLevel'] >= Fuel.level_full:
                                 break
                             time.sleep(1 / 60)
-                    except AttributeError:
-                        pass
-        time.sleep(1 / 10)
+            status_prev = status
+        time.sleep(1 / 20)
 
 
-# Print to log/alert functions
-# Engine warning updates
-def engine_warnings():
-    if gui.Vars.checkboxes["engine_warnings"] and status['driving']:
-        # Consolidated temperature warnings
-        temp_warning_types = ("oil", "water")
-        for type in temp_warning_types:
-            # Check if car has been reset and reset stored info
-            if trigger['car_reset']:
-                car[type + '_warn_value'] = 999.0
-                status[type + '_temp_warning'] = False
-                trigger[type] = False
-
-            # If the user threshold is greater than 0, use that
-            if gui.Vars.input[type + '_threshold'] > 0:
-                # Set user defined threshold
-                if status['imperial']:
-                    car[type + '_warn_value'] = (gui.Vars.input[type + '_threshold'] - 32) * (5 / 9)
-                else:
-                    car[type + '_warn_value'] = gui.Vars.input[type + '_threshold']
-            else:
-                # Determine the value at which the built-in warning turns on, and set warning status
-                if type + "_temp_warning" in car['engine_list']:
-                    if not status[type + '_temp_warning']:
-                        car[type + '_warn_value'] = car['temp_' + type]
-                        status[type + '_temp_warning'] = True
-                else:
-                    status[type + '_temp_warning'] = False
-
-            # Check if the user should be warned, or alert that the temperature has fallen below threshold and reset
-            if car['temp_' + type] >= car[type + '_warn_value']:
-                warn = True
-            elif car['temp_' + type] <= (car[type + '_warn_value'] - 5) and trigger[type]:
-                threading.Thread(target=speech_thread, args=(type + " temp has fallen to " + str(round(temperature(car['temp_' + type], "number"))) + " degrees",)).start()
-                trigger[type] = False
-                warn = False
-            else:
-                warn = False
-
-            # Warn user of temperature above threshold
-            if warn and not trigger[type]:
-                threading.Thread(target=speech_thread, args=(type + " temp has risen to " + str(round(temperature(car['temp_' + type], "number"))) + " degrees",)).start()
-                trigger[type] = True
-
-
-# Actions to do on lap complete
-def lap_alerts():
-    # Do end of lap updates/alerts
-    if not status['caution'] and car['location'] == 3 and session['state'] == 4 and stint['completed'] > 0 and "Qualify" not in session['name'] and not status['active_reset']:
-        # TTS callouts
-        if gui.Vars.checkboxes['tts_fuel']:
-            threading.Thread(target=speech_thread, args=(str(round(stint['remaining_prev'], 1)) + " laps, " + volume(usage['prev'], "long"),)).start()
-        # Text callouts
-        if gui.Vars.checkboxes['txt_fuel']:
-            txt_prev_lap()
-
-    # Write previous lap info to logs
-    if session['state'] < 6:
-        if status['active_reset']:
-            log("Lap " + str(lap['completed']) + " [Time: N/A | Invalid Lap]")
-        elif "Qualify" in session['name'] or "Race" not in session['name'] and gui.Vars.input['practice_laps'] == 0:
-            log("Lap " + str(lap['completed']) + " [Time: " + duration(lap['time_prev']) + " | Laps: " + str(round(stint['remaining_prev'], 2)) + " | Used: " + volume(usage['prev'], "short") + " | Eco: " + economy(eco['prev']) + "]")
-        else:
-            log("Lap " + str(lap['completed']) + " [Time: " + duration(lap['time_prev']) + " | Laps: " + str(round(stint['remaining_prev'], 2)) + " | Used: " + volume(usage['prev'], "short") + " | Usage Req: " + volume(usage['req'], "short") +
-                " | Eco: " + economy(eco['prev']) + " | Eco Req: " + economy(eco['req']) + " | Level Req: " + volume(level['req_prev'], "short") + "]")
-        status['separator'] = False
-
-
-# Stint report printed when resetting/pitting
 def pit_report():
-    if status['pitting'] and trigger['pitting'] or status['towing'] and trigger['towing'] or trigger['car_reset'] or not status['driving'] and trigger['driving'] and session['state'] >= 5:
-        if status['towing'] or trigger['car_reset'] or not status['driving']:
-            stint['used'] = level['pit'] - level['prev']
-        elif level['current'] < level['pit']:
-            stint['used'] = level['pit'] - level['current']
-        elif level['current'] >= level['pit']:
-            stint['used'] = level['pit'] - level['current_prev']
-        if stint['completed'] > 0:
-            time.sleep(0.8)
-            ir.freeze_var_buffer_latest()
-
-            try:
-                stint['eco'] = (stint['completed'] * misc['track_length']) / stint['used']
-            except ZeroDivisionError:
-                stint['eco'] = 0.0
-            stint['avg'] = stint['used'] / stint['completed']
-            separator()
-            log("Lap " + str(lap['completed']) + " Pit Report")
-            log(lang['separator_b'])
-            log("Stint: " + str(stint['completed']) + " laps" + ", " + "Avg Time: " + duration(stint['time_avg']) + ", " + "Avg Used: " + volume(stint['avg'], "short") + ", " +
-                "Avg Eco: " + economy(stint['eco']) + ", " + "Total Used: " + volume(stint['used'], "short"))
-            log(lang['separator_a'])
-            log("Tire Wear")
-            log(lang['separator_b'])
-            log("LF: " + percent(ir['LFwearL']) + " " + percent(ir['LFwearM']) + " " + percent(ir['LFwearR']) + "     " +
-                "RF: " + percent(ir['RFwearL']) + " " + percent(ir['RFwearM']) + " " + percent(ir['RFwearR']))
-            log("")
-            log("LR: " + percent(ir['LRwearL']) + " " + percent(ir['LRwearM']) + " " + percent(ir['LRwearR']) + "     " +
-                "RR: " + percent(ir['RRwearL']) + " " + percent(ir['RRwearM']) + " " + percent(ir['RRwearR']))
-            log(lang['separator_a'])
-            log("Tire Temp")
-            log(lang['separator_b'])
-            log("LF: " + temperature(ir['LFtempCL'], "string") + " " + temperature(ir['LFtempCM'], "string") + " " + temperature(ir['LFtempCR'], "string") + "     " +
-                "RF: " + temperature(ir['RFtempCL'], "string") + " " + temperature(ir['RFtempCM'], "string") + " " + temperature(ir['RFtempCR'], "string"))
-            log("")
-            log("LR: " + temperature(ir['LRtempCL'], "string") + " " + temperature(ir['LRtempCM'], "string") + " " + temperature(ir['LRtempCR'], "string") + "     " +
-                "RR: " + temperature(ir['RRtempCL'], "string") + " " + temperature(ir['RRtempCM'], "string") + " " + temperature(ir['RRtempCR'], "string"))
-            log(lang['separator_a'])
-            status['separator'] = True
-
-            ir.unfreeze_var_buffer_latest()
-
-            reset_vars("stint")
-
-
-# Log session info
-def session_update():
-    if trigger['session'] == "Changed" and str(round((weather['temp_track'] * 1.8) + 32, 3)).endswith("0"):
-        separator()
-        log(session['name'])
-        log(lang['separator_b'])
-        log("Skies: " + weather['sky'] + ", " + "Air: " + temperature(weather['temp_air'], "string") + ", " + "Surface: " + temperature(weather['temp_track'], "string") + ", " + "Wind: " + weather['wind_dir'] + " @ " + speed(weather['wind_vel']) + ", " +
-            "Humidity: " + percent(weather['humidity']) + ", " + "Pressure: " + pressure(weather['pressure']) + ", " + "Density: " + density(weather['density']))
-        log(lang['separator_a'])
-        status['separator'] = True
-        trigger['session'] = "Pause"
-        reset_vars(("car", "session", "stint"))
-    elif trigger['session'] == "Reset":
-        separator()
-        log("Session Reset")
-        log(lang['separator_a'])
-        status['separator'] = True
-        trigger['session'] = "Pause"
-        reset_vars(("car", "session", "stint"))
-
-
-# Consolidated environmental temperature updates
-def temp_updates():
-    if gui.Vars.checkboxes['temp_updates'] and session['time'] > 10.0:
-        temp_types = (("air", "Ambient"), ("track", "Surface"))
-        for type in temp_types:
-            # Check if a change is triggered
-            if trigger[type[0]] != "None":
-                # Check if the change is an increase or decrease
-                if trigger[type[0]] == "Increase":
-                    speech = threading.Thread(target=speech_thread, args=(type[0] + " temp has increased to " + str(int(round(temperature(weather['temp_' + type[0]], "number"), 0))) + " degrees",))
-                    speech.start()
-                elif trigger[type[0]] == "Decrease":
-                    speech = threading.Thread(target=speech_thread, args=(type[0] + " temp has decreased to " + str(int(round(temperature(weather['temp_' + type[0]], "number"), 0))) + " degrees",))
-                    speech.start()
-                separator()
-                log(type[1] + ": " + temperature(weather['temp_' + type[0]], "string"))
-                log(lang['separator_a'])
-                status['separator'] = True
-
-
-# Text alert for previous lap's fuel info
-def txt_prev_lap():
-    ir.chat_command(1)
-    time.sleep(0.05)
-    if gui.Vars.input['practice_laps'] == 0 and status['practice']:
-        keyboard.write("## Previous lap - " + str(round(stint['remaining_prev'], 1)) + " laps, " + volume(usage['prev'], "short") + ", " + economy(eco['prev']) + " ##")
+    if Fuel.stint_used > 0:
+        Fuel.stint_used_avg = Fuel.stint_used / Telem.stint_laps
+        Fuel.stint_eco = (Telem.stint_laps * Telem.lap_distance) / Fuel.stint_used
     else:
-        keyboard.write("## Previous lap - " + str(round(stint['remaining_prev'], 1)) + " laps, " + volume(usage['prev'], "short") + ", " + economy(eco['prev']) + ", " + volume(level['req_prev'], "short") + "(" + str(stops['prev']) + ", " + str(window['prev']) + ") extra ##")
-    time.sleep(0.05)
-    keyboard.send('enter')
-    time.sleep(0.05)
-    ir.chat_command(3)
-
-
-# Print race weekend info
-def weekend():
+        Fuel.stint_used_avg = 0
+        Fuel.stint_eco = 0
+    avg_time = "N/A"
+    if len(Telem.lap_time_list) > 0:
+        avg = 0
+        for lap in Telem.lap_time_list:
+            avg = avg + lap
+        avg_time = duration(avg / len(Telem.lap_time_list))
+    ir.unfreeze_var_buffer_latest()
     separator()
-    log("Weekend")
-    log(lang['separator_b'])
-    log("Track: " + misc['track_name'] + ", " + "Car: " + car['name'] + ", " + "Length: " + distance(misc['track_length'], "km") + ", " +
-        "Date: " + misc['date'] + " " + misc['time'] + ", " + "Rubber: " + misc['rubber'] + ", " + "Max Fuel: " + percent(level['full_pct']))
-    status['separator'] = False
+    log("Lap " + str(ir['LapCompleted'] + 1) + " Pit Report")
+    log(State.sep_2)
+    log("Stint: " + str(Telem.stint_laps) + " laps" + ", " + "Avg Time: " + avg_time + ", " + "Avg Used: " + volume(Fuel.stint_used_avg, "short") + ", " + "Avg Eco: " + economy(Fuel.stint_eco) + ", " + "Total Used: " + volume(Fuel.stint_used, "short"))
+    log(State.sep_1)
+    log("Tire Wear")
+    log(State.sep_2)
+    log("LF: " + percent(ir['LFwearL']) + " " + percent(ir['LFwearM']) + " " + percent(ir['LFwearR']) + "     " + "RF: " + percent(ir['RFwearL']) + " " + percent(ir['RFwearM']) + " " + percent(ir['RFwearR']))
+    log("")
+    log("LR: " + percent(ir['LRwearL']) + " " + percent(ir['LRwearM']) + " " + percent(ir['LRwearR']) + "     " + "RR: " + percent(ir['RRwearL']) + " " + percent(ir['RRwearM']) + " " + percent(ir['RRwearR']))
+    log(State.sep_1)
+    log("Tire Temp")
+    log(State.sep_2)
+    log("LF: " + temperature(ir['LFtempCL'], "string") + " " + temperature(ir['LFtempCM'], "string") + " " + temperature(ir['LFtempCR'], "string") + "     " +
+        "RF: " + temperature(ir['RFtempCL'], "string") + " " + temperature(ir['RFtempCM'], "string") + " " + temperature(ir['RFtempCR'], "string"))
+    log("")
+    log("LR: " + temperature(ir['LRtempCL'], "string") + " " + temperature(ir['LRtempCM'], "string") + " " + temperature(ir['LRtempCR'], "string") + "     " +
+        "RR: " + temperature(ir['RRtempCL'], "string") + " " + temperature(ir['RRtempCM'], "string") + " " + temperature(ir['RRtempCR'], "string"))
+    log(State.sep_1)
+    State.log_sep = True
+    Telem.stint_laps = 0
+    Fuel.stint_used = 0.0
+    Telem.lap_time_list = []
 
 
-# Various other functions
-# Check iRacing connection status and do actions
-def check_iracing():
-    try:
-        if not State.connected and ir.startup() and ir.is_initialized and ir.is_connected:
-            # Set connection status
-            State.connected = True
-
-            # Give iRacing time to load
-            time.sleep(1)
-
-            # Detect user's driver id and determine if they are a spectator or spotter
-            uid = drv_info("DriverUserID", 0)
-            for idx in range(64, -2, -1):
-                try:
-                    cid = ir['DriverInfo']['Drivers'][idx]['UserID']
-                    if cid == uid:
-                        misc['idx'] = idx
-                        status['spotter'] = False
-                        if drv_info("Drivers", "IsSpectator") == 1:
-                            status['spectator'] = True
-                        else:
-                            status['spectator'] = False
-                        break
-                    elif idx == -1:
-                        misc['idx'] = drv_info("DriverCarIdx", 0)
-                        status['spotter'] = True
-                except IndexError:
-                    pass
-
-            # Call init variable actions
-            init_vars()
-
-            # Start connected-only threads
-            threading.Thread(target=fueling_thread, daemon=True).start()
-            threading.Thread(target=warnings_thread, daemon=True).start()
-
-            # Connected alert
-            separator()
-            log('iRacing Connected')
-            log(lang['separator_a'])
-            status['separator'] = True
-            speech = threading.Thread(target=speech_thread, args=("Fuel companion connected",))
-            speech.start()
-
-            # Needed to "reset" keyboard module for some reason
-            keyboard.write("")
-        elif State.connected and not (ir.is_initialized and ir.is_connected):
-            # Disconnected alert
-            separator()
-            log('iRacing Disconnected')
-            log(lang['separator_a'])
-            status['separator'] = True
-
-            # Shut down irsdk
-            ir.shutdown()
-
-            # Call deinit variable actions
-            deinit_vars()
-    except ConnectionResetError:
-        pass
-
-
-# Check for program updates
-def check_update():
-    if gui.Vars.checkboxes["check_updates"]:
+# The SDK doesn't always work for idx so this is needed, plus spotter and spectator detection
+def idx_check():
+    uid = drv_info("DriverUserID", 0)
+    for idx in range(64, -2, -1):
         try:
-            with urllib.request.urlopen('https://www.renovamenia.com/files/iracing/other/iR_Fuel_Companion/version.txt') as file:
-                server_version = file.read().decode('utf-8').strip("v").split('.')
-                local_version = lang['version'].strip("v").split('.')
-                if local_version[0] < server_version[0]:
-                    available = True
-                elif local_version[1] < server_version[1]:
-                    if local_version[0] == server_version[0]:
-                        available = True
-                    else:
-                        available = False
-                elif local_version[2] < server_version[2]:
-                    if local_version[0] == server_version[0] and local_version[1] == server_version[1]:
-                        available = True
-                    else:
-                        available = False
-                else:
-                    available = False
-                if available:
-                    threading.Thread(target=speech_thread, args=("Update v" + server_version[0] + "." + server_version[1] + "." + server_version[2] + " available!",)).start()
-                    log("Update v" + server_version[0] + "." + server_version[1] + "." + server_version[2] + " available! https://github.com/janewsome63/iR-Fuel-Companion/releases")
-                    log(lang['separator_a'])
-        except urllib.error.URLError as error:
-            log("Update checking failed, cannot connect to update server! " + str(error))
-            log(lang['separator_a'])
+            cid = ir['DriverInfo']['Drivers'][idx]['UserID']
+            if cid == uid:
+                Telem.driver_idx = idx
+                if drv_info("Drivers", "IsSpectator") == 1:
+                    State.spectator = True
+                break
+            elif idx == -1:
+                Telem.driver_idx = drv_info("DriverCarIdx", 0)
+                State.spotter = True
+        except IndexError:
+            pass
 
 
 # Shorten DriverInfo calls
@@ -1218,29 +748,10 @@ def drv_info(group, subgroup):
     if subgroup == 0:
         return ir['DriverInfo'][group]
     else:
-        return ir['DriverInfo'][group][misc['idx']][subgroup]
+        return ir['DriverInfo'][group][Telem.driver_idx][subgroup]
         # except Exception as ex:
         #    CamIdx = ir['CamCarIdx']
         #    return ir['DriverInfo'][group][CamIdx][subgroup]
-
-
-# Shorten SessionInfo calls
-def session_info(group):
-    if State.connected:
-        return ir['SessionInfo']['Sessions'][ir['SessionNum']][group]
-
-
-# Func to not double up on separators because it bothered me
-def separator():
-    if not status['separator']:
-        log(lang['separator_a'])
-
-
-# TTS thread
-def speech_thread(text):
-    pythoncom.CoInitialize()
-    speech = wincl.Dispatch("SAPI.SpVoice")
-    speech.Speak(text)
 
 
 # Shorten WeekendInfo calls (and also split string)
@@ -1257,320 +768,327 @@ def weekend_options(group, n):
     return result_split[n]
 
 
-# Variables that need to be set from the SDK
-def update_vars():
+# Shorten SessionInfo calls
+def session_info(group):
+    if State.ir_connected:
+        return ir['SessionInfo']['Sessions'][ir['SessionNum']][group]
+
+
+# Return sky status
+def sky():
+    sky_num = ir['Skies']
+    skies = "N/A"
+    if sky_num == 0:
+        skies = "Clear"
+    elif sky_num == 1:
+        skies = "Partly Cloudy"
+    elif sky_num == 2:
+        skies = "Mostly Cloudy"
+    elif sky_num == 3:
+        skies = "Overcast"
+    return skies
+
+
+# Func to not double up on separators because it bothered me
+def separator():
+    if not State.log_sep:
+        log(State.sep_1)
+
+
+# Log session info
+def session():
+    separator()
+    log(session_info("SessionType"))
+    log(State.sep_2)
+    log("Skies: " + sky() + ", " + "Air: " + temperature(ir['AirTemp'], "string") + ", " + "Surface: " + temperature(ir['TrackTempCrew'], "string") + ", " + "Wind: " + wind() + " @ " + speed(ir['WindVel']) + ", " +
+        "Humidity: " + percent(ir['RelativeHumidity']) + ", " + "Pressure: " + pressure(ir['AirPressure']) + ", " + "Density: " + density(ir['AirDensity']))
+    log(State.sep_1)
+    Telem.last_atemp = ir['AirTemp']
+    Telem.last_ttemp = ir['TrackTempCrew']
+    Telem.laps_completed = 0
+    Telem.laps_remaining = 0
+    Fuel.used_lap_avg = 0.0
+    Fuel.used_lap_max = 0.0
+    Fuel.used_lap_list = []
+    State.reset_laps = 0
+    Fuel.max_pct = drv_info("DriverCarMaxFuelPct", 0)
+    State.log_sep = True
+    Telem.session = session_info("SessionType")
+
+
+def air_temp():
+    if gui.Vars.checkboxes["temp_updates"]:
+        if ir['AirTemp'] > Telem.last_atemp:
+            speech = threading.Thread(target=speech_thread, args=("air temp has increased to " + str(round(temperature(ir['AirTemp'], "number"))) + " degrees",))
+            speech.start()
+        else:
+            speech = threading.Thread(target=speech_thread, args=("air temp has decreased to " + str(round(temperature(ir['AirTemp'], "number"))) + " degrees",))
+            speech.start()
+    separator()
+    log("Ambient: " + temperature(ir['AirTemp'], "string"))
+    log(State.sep_1)
+    State.log_sep = True
+    Telem.last_atemp = ir['AirTemp']
+
+
+def track_temp():
+    if gui.Vars.checkboxes["temp_updates"]:
+        if ir['TrackTempCrew'] > Telem.last_ttemp:
+            speech = threading.Thread(target=speech_thread, args=("track temp has increased to " + str(round(temperature(ir['TrackTempCrew'], "number"))) + " degrees",))
+            speech.start()
+        else:
+            speech = threading.Thread(target=speech_thread, args=("track temp has decreased to " + str(round(temperature(ir['TrackTempCrew'], "number"))) + " degrees",))
+            speech.start()
+    separator()
+    log("Surface: " + temperature(ir['TrackTempCrew'], "string"))
+    log(State.sep_1)
+    State.log_sep = True
+    Telem.last_ttemp = ir['TrackTempCrew']
+
+
+# iRacing status
+def check_iracing():
+    try:
+        if State.ir_connected and not (ir.is_initialized and ir.is_connected):
+            State.ir_connected = False
+            ir.shutdown()
+            separator()
+            log('iRacing Disconnected')
+            log(State.sep_1)
+            State.log_sep = True
+            Telem.session = 0
+            State.spectator = False
+            State.spotter = False
+        elif not State.ir_connected and ir.startup() and ir.is_initialized and ir.is_connected:
+            State.ir_connected = True
+
+            threading.Thread(target=fueling_thread, daemon=True).start()
+            threading.Thread(target=warnings_thread, daemon=True).start()
+
+            separator()
+            log('iRacing Connected')
+            log(State.sep_1)
+            State.log_sep = True
+            speech = threading.Thread(target=speech_thread, args=("Fuel companion connected",))
+            speech.start()
+            time.sleep(3)
+
+            # Various one-time calls
+            detect_units()
+            idx_check()
+            track_length = ir['WeekendInfo']['TrackLength']
+            track_length_spl = track_length.split()
+            Telem.lap_distance = float(track_length_spl[0])
+            Fuel.used_lap_list = []
+            Fuel.last_level = ir['FuelLevel']
+            State.count = ir['LapCompleted'] + 1
+
+            fuel_calc_init()
+
+            # Logging session info
+            separator()
+            log("Weekend")
+            log(State.sep_2)
+            log("Track: " + weekend_info("TrackName", 0) + ", " + "Car: " + drv_info("Drivers", "CarPath") + ", " + "Length: " + distance(Telem.lap_distance, "km") + ", " +
+                "Date: " + weekend_options("Date", 0) + " " + weekend_options("TimeOfDay", 0) + weekend_options("TimeOfDay", 1) + ", " + "Rubber: " + session_info("SessionTrackRubberState") + ", " + "Max Fuel: " + percent(Fuel.max_pct))
+            State.log_sep = False
+            session()
+
+            # Needed to "reset" keyboard module for some reason
+            time.sleep(1)
+            keyboard.write("")
+    except ConnectionResetError:
+        pass
+
+
+# Main loop (run in thread because of GUI weirdness)
+def main():
+    # Freeze telemetry for consistent data
     ir.freeze_var_buffer_latest()
 
-    # Detect unit type
-    if ir['DisplayUnits'] == 0:
-        status['imperial'] = True
-
-    # Update live fuel vars
-    if ir['FuelLevel'] > 0.0:
-        if not car['location'] == 1:
-            level['current_prev'] = level['current']
-        level['current'] = ir['FuelLevel']
-        level['current_pct'] = ir['FuelLevelPct']
-
-    # Update live telem vars
-    car['engine_hex'] = ir['EngineWarnings']
-    car['location'] = ir['PlayerTrackSurface']  # (-1 = not_in_world, 0 = off_track, 1 = in stall, 2 = approaching_pits, 3 = on_track)
-    session['flag_hex'] = ir['SessionFlags']
-    session['state'] = ir['SessionState']
-    session['time'] = ir['SessionTime']
-    session['time_remaining'] = ir['SessionTimeRemain']
-    weather['density'] = ir['AirDensity']
-    weather['humidity'] = ir['RelativeHumidity']
-    weather['pressure'] = ir['AirPressure']
-    weather['wind_vel'] = ir['WindVel']
-
-    # Check skybox weather
-    if ir['Skies'] == 0:
-        weather['sky'] = "Clear"
-    elif ir['Skies'] == 1:
-        weather['sky'] = "Partly Cloudy"
-    elif ir['Skies'] == 2:
-        weather['sky'] = "Mostly Cloudy"
-    elif ir['Skies'] == 3:
-        weather['sky'] = "Overcast"
+    # Session type retrieval and change detection
+    if State.ir_connected:
+        session_type = session_info("SessionType")
     else:
-        weather['sky'] = "N/A"
+        session_type = Telem.session
+    if session_type != Telem.session:
+        session()
 
-    # Determine cardinal wind direction
-    wind_deg = ir['WindDir'] * 57.295779513
-    if wind_deg >= 337.5 or wind_deg <= 22.5:
-        weather['wind_dir'] = "N"
-    elif 22.5 < wind_deg < 67.5:
-        weather['wind_dir'] = "NE"
-    elif 67.5 <= wind_deg <= 112.5:
-        weather['wind_dir'] = "E"
-    elif 112.5 < wind_deg < 157.5:
-        weather['wind_dir'] = "SE"
-    elif 157.5 <= wind_deg <= 202.5:
-        weather['wind_dir'] = "S"
-    elif 202.5 < wind_deg < 247.5:
-        weather['wind_dir'] = "SW"
-    elif 247.5 <= wind_deg <= 292.5:
-        weather['wind_dir'] = "W"
-    elif 292.5 < wind_deg < 337.5:
-        weather['wind_dir'] = "NW"
-    else:
-        weather['wind_dir'] = "N/A"
+    Telem.flag = ir['SessionFlags']
+    Telem.engine = ir['EngineWarnings']
 
-    # Check if lap has changed
-    if car['location'] >= 2:
-        if ir['LapCompleted'] < lap['next'] - 1 or ir['LapCompleted'] > lap['next'] + 1:
-            lap['next'] = ir['LapCompleted'] + 1
-        elif ir['LapCompleted'] == lap['next']:
-            lap['next'] = lap['next'] + 1
-            trigger['lap'] = True
-        elif ir['LapCompleted'] == lap['next'] - 1:
-            trigger['lap'] = False
+    if gui.Vars.checkboxes["engine_warnings"]:
+        if "oil_temp_warning" in Telem.engine_list and not Telem.oil_warned:
+            threading.Thread(target=speech_thread, args=("oil temp has risen to " + str(round(temperature(ir['OilTemp'], "number"))) + " degrees",)).start()
+            Telem.oil_warned = True
+        elif "oil_temp_warning" not in Telem.engine_list and Telem.oil_warned:
+            State.oil_warned = False
+        if "water_temp_warning" in Telem.engine_list and not Telem.water_warned:
+            threading.Thread(target=speech_thread, args=("water temp has risen to " + str(round(temperature(ir['WaterTemp'], "number"))) + " degrees",)).start()
+            Telem.water_warned = True
+        elif "water_temp_warning" not in Telem.engine_list and Telem.water_warned:
+            Telem.water_warned = False
 
-    # Check if session has changed
-    if session['name'] != session_info("SessionType") or trigger['init']:
-        session['name'] = session_info("SessionType")
-        trigger['session'] = "Changed"
-    elif trigger['session'] == "Changed":
-        pass
-    elif math.floor(session['time']) == 0.0 and trigger['session'] != "Pause":
-        trigger['session'] = "Reset"
-    elif math.floor(session['time']) > 0.0 and trigger['session'] == "Pause":
-        trigger['session'] = "None"
+    if ((ir['AirTemp'] * 1.8) + 32) > ((Telem.last_atemp * 1.8) + 32) + 1 or ((ir['AirTemp'] * 1.8) + 32) < ((Telem.last_atemp * 1.8) + 32) - 1:
+        air_temp()
 
-    # Check if session is practice
-    if "Qualify" in session['name'] or "Race" in session['name']:  # Heat and consolation races seem to simply be reported as "Race"
-        status['practice'] = False
-    else:
-        status['practice'] = True
+    if ((ir['TrackTempCrew'] * 1.8) + 32) > ((Telem.last_ttemp * 1.8) + 32) + 3 or ((ir['TrackTempCrew'] * 1.8) + 32) < ((Telem.last_ttemp * 1.8) + 32) - 3:
+        track_temp()
 
-    # Check if caution is out
-    if "caution" in session['flag_list']:
-        status['caution'] = True
-    else:
-        status['caution'] = False
+    if session_info("SessionType") == "Offline Testing" or session_info("SessionType") == "Practice":
+        if drv_info("DriverCarMaxFuelPct", 0) == 1:
+            Fuel.max_pct = gui.Vars.spin["practice_fuel_percent"] / 100
 
-    # Check if session is timed
-    if ir['SessionLapsRemain'] <= 10000:
-        status['timed'] = False
-    else:
-        status['timed'] = True
+        if ir['OilTemp'] == 77.0 and State.reset_laps == 1:
+            Telem.laps_completed = 0
+            Fuel.used_lap_avg = 0.0
+            Fuel.used_lap_max = 0.0
+            Fuel.used_lap_list = []
+            State.reset_laps = 0
+        elif ir['OilTemp'] != 77.0:
+            State.reset_laps = 1
 
-    # Set fuel limits
-    if status['practice'] or drv_info("DriverCarMaxFuelPct", 0) != 1 and gui.Vars.input['practice_laps'] != 0:
-        # Use practice fuel values if max fuel is 100%, else use normal
-        level['full_pct'] = gui.Vars.input['practice_fuel_percent'] / 100
-        level['full'] = drv_info("DriverCarFuelMaxLtr", 0) * level['full_pct']
-    else:
-        # Use normal fuel values
-        level['full_pct'] = drv_info("DriverCarMaxFuelPct", 0)
-        level['full'] = drv_info("DriverCarFuelMaxLtr", 0)
+    # Lap completion trigger
+    if ir['LapCompleted'] < State.count:
+        State.count = ir['LapCompleted'] + 1
+    if ir['LapCompleted'] > State.count + 1:
+        State.count = ir['LapCompleted'] + 1
+    elif ir['LapCompleted'] == State.count:
+        Fuel.level = ir['FuelLevel']
+        Fuel.pct = ir['FuelLevelPct']
+        State.count = State.count + 1
+        State.trigger = True
 
-    # Detect if car is being towed
-    if ir['PlayerCarTowTime'] > 0.0:
-        if not status['towing']:
-            status['towing'] = True
-            trigger['towing'] = True
+    # Things to do on lap complete
+    if State.trigger and Fuel.level > 0:
+        if session_info("SessionType") == "Offline Testing" or session_info("SessionType") == "Practice":
+            Telem.laps_completed = Telem.laps_completed + 1
         else:
-            trigger['towing'] = False
-    else:
-        if status['towing']:
-            status['towing'] = False
-            trigger['towing'] = True
+            Telem.laps_completed = ir['LapCompleted']
+        if Telem.laps_completed <= 0:
+            Telem.stint_laps = 0
         else:
-            trigger['towing'] = False
+            Telem.stint_laps = Telem.stint_laps + 1
 
-    # Check if car has been reset
-    if car['temp_oil'] + car['temp_water'] == 154.0 and car['temp_oil_prev'] + car['temp_water_prev'] != 154.0 and session['time'] > 5.0:
-        trigger['car_reset'] = True
-    else:
-        trigger['car_reset'] = False
-
-    # Check if an active reset happened
-    lap['dist_prev'] = lap['dist']
-    lap['dist'] = ir['LapDist']
-    if not trigger['lap'] and car['location'] != 1 and car['location'] != -1 and "Offline Testing" in session['name']:
-        if lap['dist'] > lap['dist_prev'] + 15 or lap['dist'] < lap['dist_prev'] - 15:
-            trigger['active_reset'] = True
-            status['active_reset'] = True
+        # Estimate laps based on time remaining if session laps aren't set
+        if ir['SessionLapsRemain'] > 5000 and ir['LapLastLapTime'] > 1:
+            Telem.laps_remaining = math.ceil(ir['SessionTimeRemain'] / ir['LapLastLapTime'])
+        elif ir['SessionLapsRemain'] > 5000 and ir['LapLastLapTime'] < 1:
+            Telem.laps_remaining = math.ceil(ir['SessionTimeRemain'] / (Telem.lap_distance / (100 / 3600)))
+        elif ir['SessionLapsRemain'] <= 0:
+            Telem.laps_remaining = 1
         else:
-            trigger['active_reset'] = False
+            Telem.laps_remaining = ir['SessionLapsRemain'] + 1
 
-    # Consolidated status values
-    status_types = [("driving", "IsOnTrack"), ("pitting", "PitstopActive")]
-    for type in status_types:
-        if status[type[0]] != ir[type[1]]:
-            status[type[0]] = ir[type[1]]
-            trigger[type[0]] = True
-        else:
-            trigger[type[0]] = False
-
-    # Check if environmental temperatures have changed
-    types = [("air", "AirTemp", 0.55), ("track", "TrackTempCrew", 2.0)]
-    for type in types:
-        if ir[type[1]] > weather['temp_' + type[0] + '_prev'] + type[2]:
-            trigger[type[0]] = "Increase"
-            weather['temp_' + type[0] + '_prev'] = ir[type[1]]
-        elif ir[type[1]] < weather['temp_' + type[0] + '_prev'] - type[2]:
-            trigger[type[0]] = "Decrease"
-            weather['temp_' + type[0] + '_prev'] = ir[type[1]]
-        else:
-            trigger[type[0]] = "None"
-        weather['temp_' + type[0]] = ir[type[1]]
-
-    # Consolidated temperature updates
-    types = [("oil", "OilTemp"), ("water", "WaterTemp")]
-    for type in types:
-        car['temp_' + type[0] + '_prev'] = car['temp_' + type[0]]
-        car['temp_' + type[0]] = ir[type[1]]
-
-    ir.unfreeze_var_buffer_latest()
-
-    # Driving status changed
-    if trigger['driving'] and status['driving'] or trigger['car_reset']:
-        misc['timer_start'] = time.perf_counter()
-        lap['pit'] = lap['completed']
-        level['pit'] = level['current']
-
-    # Pitting status changed
-    if trigger['pitting']:
-        if not status['pitting']:
-            lap['pit'] = lap['completed']
-            level['pit'] = level['current']
-
-    # Actions to do if car was reset to box
-    if trigger['car_reset'] and not trigger['init']:
-        separator()
-        log("Car Reset")
-        log(lang['separator_a'])
-        status['separator'] = True
-        if status['practice']:
-            reset_vars("car")
-
-    # Actions to do if an active reset happened
-    if trigger['active_reset']:
-        separator()
-        log("Active Reset")
-        log(lang['separator_a'])
-        status['separator'] = True
-        if status['practice']:
-            reset_vars("active")
-
-    # Things to do on first connect
-    if trigger['init']:
-        if status['spectator']:
-            separator()
-            log("Spectator Mode")
-            log(lang['separator_a'])
-            status['separator'] = True
-        elif status['spotter']:
-            separator()
-            log("Spotter Mode")
-            log(lang['separator_a'])
-            status['separator'] = True
-        weekend()
-        trigger['init'] = False
-
-    # Lap completion telemetry, needs a slight delay and reset of the buffer in order to properly update
-    if trigger['lap']:
-        time.sleep(0.8)
-        ir.freeze_var_buffer_latest()
-
-        # Check if lap had an incident
-        misc['incidents_prev'] = misc['incidents']
-        misc['incidents'] = ir['PlayerCarMyIncidentCount']
-        if misc['incidents'] > misc['incidents_prev']:
-            status['incident'] = True
-        else:
-            status['incident'] = False
-
-        # Set previous lap time
-        if ir['LapLastLapTime'] <= 0 or ir['LapLastLapTime'] == lap['time_prev']:
-            lap['time_prev'] = time.perf_counter() - misc['timer_start']
-        else:
-            lap['time_prev'] = ir['LapLastLapTime']
-        misc['timer_start'] = time.perf_counter()
-
-        if ir['LapCompleted'] > 0:
-            # Set laps completed
-            if status['practice'] and gui.Vars.input['practice_laps'] != 0:
-                lap['completed'] = lap['completed'] + 1
-            else:
-                lap['completed'] = ir['LapCompleted']
-
-            if not status['incident'] and not status['caution'] and not status['active_reset']:
-                # Overall average lap times
-                lap['times'].append(lap['time_prev'])
-                total = 0
-                for entry in lap['times']:
-                    total = total + entry
-                lap['time_avg'] = total / len(lap['times'])
-
-                # Stint average lap times
-                stint['times'].append(lap['time_prev'])
-                total = 0
-                for entry in stint['times']:
-                    total = total + entry
-                stint['time_avg'] = total / len(stint['times'])
-
-        # Determine total and remaining laps
-        if status['practice'] and gui.Vars.input['practice_laps'] != 0:
-            lap['total'] = gui.Vars.input['practice_laps']
-            lap['remaining'] = gui.Vars.input['practice_laps'] - lap['completed']
-        elif status['timed'] and lap['time_avg'] > 0:
-            lap['total'] = math.ceil(session['time_total'] / lap['time_avg'])
-            lap['remaining'] = math.ceil(session['time_remaining'] / lap['time_avg'])
-        elif status['timed'] and lap['time_avg'] <= 0:
-            lap['total'] = math.ceil(session['time_total'] / (misc['track_length'] / 0.5))
-            lap['remaining'] = math.ceil(session['time_remaining'] / (misc['track_length'] / 0.5)) - lap['completed']
-        else:
-            lap['total'] = ir['SessionLapsTotal']
-            if (ir['SessionLapsRemain'] + 1) < 0:
-                lap['remaining'] = 0
-            else:
-                lap['remaining'] = ir['SessionLapsRemain'] + 1
+        # Use mock race laps for practices
+        if session_info("SessionType") == "Offline Testing" or session_info("SessionType") == "Practice":
+            Telem.laps_remaining = gui.Vars.spin["practice_laps"] - Telem.laps_completed
 
         fuel_calc()
 
-        lap_alerts()
+        # Things to do if not under caution or in pit
+        if ir['CarIdxPaceLine'][Telem.driver_idx] == -1 and ir['CarIdxTrackSurface'][Telem.driver_idx] == 3 and ir['SessionState'] == 4 and Telem.stint_laps > 1:
+            # TTS callouts
+            if gui.Vars.checkboxes["tts_fuel"] and session_type != "Lone Qualify":
+                threading.Thread(target=speech_thread, args=(str(round(Fuel.laps_left, 2)) + " laps, " + volume(Fuel.used_lap, "long"),)).start()
+            # Text callouts
+            if gui.Vars.checkboxes["txt_fuel"] and session_type != "Lone Qualify":
+                time.sleep(0.50)
+                ir.chat_command(1)
+                time.sleep(0.1)
+                keyboard.write("## Previous lap - " + str(round(Fuel.laps_left, 2)) + " laps, " + volume(Fuel.used_lap, "short") + ", " + economy(Fuel.eco) + ", " + volume(Fuel.level_req, "short") + "(" + str(Fuel.stops) + ") extra ##")
+                time.sleep(0.1)
+                keyboard.send('enter')
+                time.sleep(0.1)
+                ir.chat_command(3)
 
-        # Set lap completion variables
-        stint['completed'] = stint['completed'] + 1
-        level['prev'] = level['current']
-
-        reset_vars("lap")
-
+        # Info to log
         ir.unfreeze_var_buffer_latest()
+        time.sleep(1)
+        if len(Telem.lap_time_list) > 0:
+            lap_list_max = max(Telem.lap_time_list)
+        else:
+            lap_list_max = 999
+        if 0 < ir['LapLastLapTime'] < (lap_list_max + 5):
+            Telem.lap_time_list.append(ir['LapLastLapTime'])
+
+        lap_time = duration(ir['LapLastLapTime'])
+        if ir['LapLastLapTime'] <= 0.0:
+            lap_time = "N/A"
+
+        if Telem.laps_completed <= ir['SessionLapsTotal']:
+            if session_info("SessionType") == "Offline Testing" or session_info("SessionType") == "Practice":
+                log("Lap " + str(ir['LapCompleted']) + " [Time: " + lap_time + " | Laps: " + str(round(Fuel.laps_left, 2)) + " | Used: " + volume(Fuel.used_lap, "short") + " | Eco: " + economy(Fuel.eco) + "]")
+            else:
+                log("Lap " + str(ir['LapCompleted']) + " [Time: " + lap_time + " | Laps: " + str(round(Fuel.laps_left, 2)) + " | Used: " + volume(Fuel.used_lap, "short") + " | Usage Req: " + volume(Fuel.used_lap_req, "short") + " | Eco: " +
+                    economy(Fuel.eco) + " | Eco Req: " + economy(Fuel.eco_req) + " | Level Req: " + volume(Fuel.level_req, "short") + "]")
+            State.log_sep = False
+
+        # Lap finishing actions
+        Fuel.last_level = Fuel.level
+        State.trigger = False
+    elif State.trigger and Fuel.level <= 0:
+        Fuel.last_level = Fuel.level
+        State.trigger = False
+
+    # Pit report
+    if ir['CarIdxTrackSurface'][Telem.driver_idx] != State.surface and ir['CarIdxTrackSurface'][
+        Telem.driver_idx] == 1 or ir['CarIdxTrackSurface'][Telem.driver_idx] != State.surface and \
+            ir['CarIdxTrackSurface'][Telem.driver_idx] == -1:
+        Fuel.stint_used = Fuel.last_pit_level - ir['FuelLevel']
+        if Fuel.stint_used <= 0:
+            Fuel.stint_used = Fuel.last_pit_level - Fuel.last_level
+        time.sleep(3)
+        if Telem.stint_laps > 0:
+            pit_report()
+
+    if State.surface == 1 and ir['CarIdxTrackSurface'][Telem.driver_idx] != 1:
+        Fuel.last_pit_level = ir['FuelLevel']
+    if State.surface == -1 and ir['CarIdxTrackSurface'][Telem.driver_idx] != -1:
+        Fuel.last_pit_level = ir['FuelLevel']
+
+    State.surface = ir['CarIdxTrackSurface'][Telem.driver_idx]
 
 
-# Main loop (run in thread because the GUI technically needs to be the "main" loop)
-def main():
-    # Has to pause or the GUI gets mad
+def init():
     time.sleep(1)
+    log("iR Fuel Companion " + State.version)
+    log(State.sep_1)
 
-    # Launch message
-    log("iR Fuel Companion " + lang['version'])
-    log(lang['separator_a'])
+    # Check for updates
+    if gui.Vars.checkboxes["check_updates"]:
+        try:
+            with urllib.request.urlopen('https://www.renovamenia.com/files/iracing/other/iR_Fuel_Companion/version.txt') as file:
+                server_version = file.read().decode('utf-8').strip("v").split('.')
+                local_version = State.version.strip("v").split('.')
+                if local_version[0] < server_version[0]:
+                    available = True
+                elif local_version[1] < server_version[1]:
+                    available = True
+                elif local_version[2] < server_version[2]:
+                    available = True
+                else:
+                    available = False
+                if available:
+                    threading.Thread(target=speech_thread, args=("Update v" + server_version[0] + "." + server_version[1] + "." + server_version[2] + " available!",)).start()
+                    log("Update v" + server_version[0] + "." + server_version[1] + "." + server_version[2] + " available! https://github.com/janewsome63/iR-Fuel-Companion/releases")
+                    log(State.sep_1)
+        except urllib.error.URLError as error:
+            log("Update checking failed, cannot connect to update server! " + str(error))
+            log(State.sep_1)
 
-    check_update()
-
-    # Check for iR connection and do functions every cycle
     try:
+        # Check connection and start (or not) loop
         while True:
             check_iracing()
-            if State.connected:
-                update_vars()
-                session_update()
-                temp_updates()
-                engine_warnings()
-                pit_report()
-            # Delay (min 1/60)
+            if State.ir_connected:
+                main()
+            # Data read delay (min 1/60)
             time.sleep(1 / 15)
     except KeyboardInterrupt:
         pass
 
 
-# Set date
 Date = datetime.now()
 DateStr = Date.strftime("%Y-%m-%d")
 
@@ -1604,6 +1122,7 @@ def log(text):
 
 
 if __name__ == '__main__':
+    # Initializing ir and State
     ir = irsdk.IRSDK()
     if not os.path.exists(gui.Vars.user_dir + '\\settings.ini'):
         gui.set_config()
@@ -1613,6 +1132,6 @@ if __name__ == '__main__':
     threading.Thread(target=keybind.keys, daemon=True).start()
     threading.Thread(target=controls_thread, daemon=True).start()
     threading.Thread(target=binding_thread, daemon=True).start()
-    threading.Thread(target=main, daemon=True).start()
+    threading.Thread(target=init, daemon=True).start()
 
-    gui.main(lang['version'])
+    gui.main(State.version)
